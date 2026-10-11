@@ -1,0 +1,719 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+{% block meta_description %}TechImport ERP – Real-time business dashboard for electronics import operations{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Dashboard-specific overrides */
+.dashboard-grid-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.dashboard-grid-row2-wide {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.dashboard-grid-row3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.widget-scroll { max-height: 320px; overflow-y: auto; }
+.widget-scroll::-webkit-scrollbar { width: 4px; }
+.widget-scroll::-webkit-scrollbar-thumb { background: var(--erp-border); border-radius: 2px; }
+.container-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--erp-border-soft);
+}
+.container-card:last-child { border-bottom: none; }
+.aging-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--erp-border);
+  overflow: hidden;
+  flex: 1;
+}
+.aging-fill { height: 100%; border-radius: 3px; }
+@media (max-width: 1200px) {
+  .dashboard-grid-row2 { grid-template-columns: 1fr; }
+  .dashboard-grid-row2-wide { grid-template-columns: 1fr 1fr; }
+  .dashboard-grid-row3 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 768px) {
+  .dashboard-grid-row2-wide,
+  .dashboard-grid-row3 { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── Page header ──────────────────────────────────────────────────────── #}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-speedometer2 text-primary me-2" aria-hidden="true"></i>Dashboard
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <span>Home</span>
+      <span class="sep">›</span>
+      <span aria-current="page">Dashboard</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <span id="last-updated" class="text-muted" style="font-size:12px;">
+      <i class="bi bi-arrow-clockwise me-1"></i>Live — refreshes every 60s
+    </span>
+    <button class="btn-erp btn-erp-ghost btn-erp-sm" onclick="refreshDashboard()" id="btn-refresh-all">
+      <i class="bi bi-arrow-clockwise"></i> Refresh
+    </button>
+    <button class="btn-erp btn-erp-ghost btn-erp-sm" onclick="window.print()">
+      <i class="bi bi-printer"></i> Print
+    </button>
+  </div>
+</div>
+
+{# ROW 1 – KPI Cards #}
+<div class="kpi-grid stagger-children" id="kpi-grid" aria-label="Key performance indicators">
+
+  {# Today's Sales #}
+  <div class="kpi-card" style="--kpi-accent:#1E5EFF"
+       data-url="{% url 'sales:list' %}"
+       onclick="window.location.href=this.dataset.url;"
+       role="button" tabindex="0" aria-label="Today's Sales – click to view sales list">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i></div>
+      <span class="kpi-trend up" id="kpi-sales-trend">
+        <i class="bi bi-arrow-up"></i><span id="kpi-sales-pct">12.4%</span>
+      </span>
+    </div>
+    <div class="kpi-value" id="kpi-sales-val">₨ 2.84M</div>
+    <div class="kpi-label">Today's Sales</div>
+  </div>
+
+  {# Receivables #}
+  <div class="kpi-card" style="--kpi-accent:#F59E0B"
+       data-url="{% url 'ledger:list' %}"
+       onclick="window.location.href=this.dataset.url;"
+       role="button" tabindex="0" aria-label="Receivables">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-clock-history" aria-hidden="true"></i></div>
+      <span class="kpi-trend down" id="kpi-recv-trend">
+        <i class="bi bi-arrow-up"></i><span id="kpi-recv-pct">4.2%</span>
+      </span>
+    </div>
+    <div class="kpi-value" id="kpi-recv-val">₨ 18.6M</div>
+    <div class="kpi-label">Total Receivables</div>
+  </div>
+
+  {# Payables #}
+  <div class="kpi-card" style="--kpi-accent:#EF4444"
+       role="button" tabindex="0" aria-label="Payables">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-arrow-up-right-circle" aria-hidden="true"></i></div>
+      <span class="kpi-trend down" id="kpi-pay-trend">
+        <i class="bi bi-arrow-down"></i><span id="kpi-pay-pct">3.1%</span>
+      </span>
+    </div>
+    <div class="kpi-value" id="kpi-pay-val">₨ 9.2M</div>
+    <div class="kpi-label">Total Payables</div>
+  </div>
+
+  {# Stock Value #}
+  <div class="kpi-card" style="--kpi-accent:#10B981"
+       data-url="{% url 'inventory:list' %}"
+       onclick="window.location.href=this.dataset.url;"
+       role="button" tabindex="0" aria-label="Stock Value">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-boxes" aria-hidden="true"></i></div>
+      <span class="kpi-trend up" id="kpi-stock-trend">
+        <i class="bi bi-arrow-up"></i><span id="kpi-stock-pct">6.8%</span>
+      </span>
+    </div>
+    <div class="kpi-value" id="kpi-stock-val">₨ 34.1M</div>
+    <div class="kpi-label">Inventory Value</div>
+  </div>
+
+  {# Low-Stock #}
+  <div class="kpi-card" style="--kpi-accent:#8B5CF6"
+       role="button" tabindex="0" aria-label="Low-stock items">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></div>
+      <span class="kpi-trend down" id="kpi-lowstock-trend">
+        <i class="bi bi-arrow-down"></i><span id="kpi-lowstock-pct">2</span>
+      </span>
+    </div>
+    <div class="kpi-value" id="kpi-lowstock-val">14</div>
+    <div class="kpi-label">Low-Stock SKUs</div>
+  </div>
+
+  {# Pending Deliveries #}
+  <div class="kpi-card" style="--kpi-accent:#06B6D4"
+       data-url="{% url 'distribution:list' %}"
+       onclick="window.location.href=this.dataset.url;"
+       role="button" tabindex="0" aria-label="Pending deliveries">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-truck" aria-hidden="true"></i></div>
+      <span class="kpi-trend up" id="kpi-del-trend">
+        <i class="bi bi-arrow-up"></i><span id="kpi-del-pct">5</span>
+      </span>
+    </div>
+    <div class="kpi-value" id="kpi-del-val">31</div>
+    <div class="kpi-label">Pending Deliveries</div>
+  </div>
+
+</div>{# /kpi-grid #}
+
+{# ROW 2 – Main Charts #}
+<div class="dashboard-grid-row2 mb-4">
+
+  {# Sales vs Purchase line chart #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.1s">
+    <div class="card-header-erp">
+      <span class="card-title-erp">
+        <i class="bi bi-graph-up" aria-hidden="true"></i>Sales vs Purchase
+      </span>
+      <div class="card-actions">
+        <div class="chart-period-btns" role="group" aria-label="Chart period">
+          <button class="chart-period-btn active" data-period="daily" data-chart="salesvspurchase">D</button>
+          <button class="chart-period-btn" data-period="weekly" data-chart="salesvspurchase">W</button>
+          <button class="chart-period-btn" data-period="monthly" data-chart="salesvspurchase">M</button>
+        </div>
+        <button class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm"
+                onclick="exportChart('salesvspurchase')" title="Export chart">
+          <i class="bi bi-download"></i>
+        </button>
+      </div>
+    </div>
+    <div class="card-body-erp">
+      <div class="chart-container"><canvas id="salesVsPurchaseChart" aria-label="Sales vs Purchase line chart"></canvas></div>
+    </div>
+  </div>
+
+  {# Cash In vs Cash Out #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.15s">
+    <div class="card-header-erp">
+      <span class="card-title-erp">
+        <i class="bi bi-currency-exchange" aria-hidden="true"></i>Cash Flow
+      </span>
+      <div class="card-actions">
+        <div class="chart-period-btns" role="group" aria-label="Chart period">
+          <button class="chart-period-btn active" data-period="daily" data-chart="cashflow">D</button>
+          <button class="chart-period-btn" data-period="weekly" data-chart="cashflow">W</button>
+          <button class="chart-period-btn" data-period="monthly" data-chart="cashflow">M</button>
+        </div>
+        <button class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm"
+                onclick="exportChart('cashflow')" title="Export chart">
+          <i class="bi bi-download"></i>
+        </button>
+      </div>
+    </div>
+    <div class="card-body-erp">
+      <div class="chart-container"><canvas id="cashFlowChart" aria-label="Cash in vs cash out chart"></canvas></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="dashboard-grid-row2 mb-4">
+
+  {# Top 10 Products bar chart #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.2s">
+    <div class="card-header-erp">
+      <span class="card-title-erp">
+        <i class="bi bi-bar-chart-steps" aria-hidden="true"></i>Top 10 Products
+      </span>
+      <div class="card-actions">
+        <div class="chart-period-btns" role="group" aria-label="Chart period">
+          <button class="chart-period-btn active" data-period="daily" data-chart="topproducts">D</button>
+          <button class="chart-period-btn" data-period="weekly" data-chart="topproducts">W</button>
+          <button class="chart-period-btn" data-period="monthly" data-chart="topproducts">M</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body-erp">
+      <div class="chart-container"><canvas id="topProductsChart" aria-label="Top 10 products by sales"></canvas></div>
+    </div>
+  </div>
+
+  {# Top 10 Clients bar chart #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.25s">
+    <div class="card-header-erp">
+      <span class="card-title-erp">
+        <i class="bi bi-people" aria-hidden="true"></i>Top 10 Clients
+      </span>
+      <div class="card-actions">
+        <div class="chart-period-btns" role="group" aria-label="Chart period">
+          <button class="chart-period-btn active" data-period="daily" data-chart="topclients">D</button>
+          <button class="chart-period-btn" data-period="weekly" data-chart="topclients">W</button>
+          <button class="chart-period-btn" data-period="monthly" data-chart="topclients">M</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body-erp">
+      <div class="chart-container"><canvas id="topClientsChart" aria-label="Top 10 clients by revenue"></canvas></div>
+    </div>
+  </div>
+
+</div>
+
+{# ROW 3 – Widget Cards #}
+<div class="dashboard-grid-row3 mb-4">
+
+  {# ── Inventory Widget ─────────────────────────────────────────────── #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.3s">
+    <div class="card-header-erp">
+      <span class="card-title-erp"><i class="bi bi-boxes"></i>Inventory</span>
+      <div class="card-actions">
+        <button id="inventory-widget-refresh" type="button"
+                class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm"
+                title="Refresh" aria-label="Refresh inventory">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <a href="{% url 'inventory:list' %}" class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm" title="View all">
+          <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+    <div class="card-body-erp p-0">
+      <div class="widget-scroll p-3" id="inventory-widget"
+           data-url="{% url 'inventory:dashboard_api' %}" aria-live="polite">
+        <div id="inv-skeleton" role="status" aria-label="Loading inventory">
+          {% for _ in "123456" %}<div class="skeleton skeleton-row mb-2"></div>{% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Manufacturing Widget ──────────────────────────────────────────── #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.35s">
+    <div class="card-header-erp">
+      <span class="card-title-erp"><i class="bi bi-gear-wide-connected"></i>Manufacturing</span>
+      <div class="card-actions">
+        <a href="{% url 'manufacturing:list' %}" class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm">
+          <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+    <div class="card-body-erp">
+      <div class="row g-3 mb-3">
+        <div class="col-4 text-center">
+          <div style="font-size:24px;font-weight:700;color:var(--erp-primary);" id="mfg-open">8</div>
+          <div style="font-size:11px;color:var(--erp-text-muted);">Open Orders</div>
+        </div>
+        <div class="col-4 text-center">
+          <div style="font-size:24px;font-weight:700;color:var(--erp-warning);" id="mfg-wip">5</div>
+          <div style="font-size:11px;color:var(--erp-text-muted);">WIP</div>
+        </div>
+        <div class="col-4 text-center">
+          <div style="font-size:24px;font-weight:700;color:var(--erp-success);" id="mfg-done">22</div>
+          <div style="font-size:11px;color:var(--erp-text-muted);">Completed</div>
+        </div>
+      </div>
+      <div id="mfg-shortage-list" class="widget-scroll" style="max-height:200px;">
+        <div class="alert-strip alert-strip-warning mb-2">
+          <i class="bi bi-exclamation-triangle"></i>
+          <span>Raw material shortage: PCB Boards (need 500, have 120)</span>
+        </div>
+        <div class="alert-strip alert-strip-warning mb-2">
+          <i class="bi bi-exclamation-triangle"></i>
+          <span>Low stock: Heat Sinks (need 200, have 45)</span>
+        </div>
+        <div class="alert-strip alert-strip-info">
+          <i class="bi bi-info-circle"></i>
+          <span>Production order MO-2024-0041 due tomorrow</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Distribution Widget ───────────────────────────────────────────── #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.4s">
+    <div class="card-header-erp">
+      <span class="card-title-erp"><i class="bi bi-truck"></i>Distribution</span>
+      <div class="card-actions">
+        <a href="{% url 'distribution:list' %}" class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm">
+          <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+    <div class="card-body-erp p-0">
+      <div class="widget-scroll p-3" id="distribution-widget">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <span class="badge-erp badge-erp-warning">Pending: 12</span>
+          <span class="badge-erp badge-erp-info">On the way: 8</span>
+          <span class="badge-erp badge-erp-success">Delivered: 47</span>
+        </div>
+        {% for order in delivery_orders %}
+        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+          <div>
+            <div style="font-size:12.5px;font-weight:500;">{{ order.ref }}</div>
+            <div style="font-size:11px;color:var(--erp-text-muted);">{{ order.client }} · {{ order.salesman }}</div>
+          </div>
+          <span class="badge-erp badge-erp-{{ order.status_class }}">{{ order.status }}</span>
+        </div>
+        {% empty %}
+        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+          <div>
+            <div style="font-size:12.5px;font-weight:500;">DO-2024-0281</div>
+            <div style="font-size:11px;color:var(--erp-text-muted);">TechMart Pvt Ltd · Ali Hassan</div>
+          </div>
+          <span class="badge-erp badge-erp-warning">Pending</span>
+        </div>
+        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+          <div>
+            <div style="font-size:12.5px;font-weight:500;">DO-2024-0280</div>
+            <div style="font-size:11px;color:var(--erp-text-muted);">Digital World · Rizwan Ahmed</div>
+          </div>
+          <span class="badge-erp badge-erp-info">On the way</span>
+        </div>
+        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+          <div>
+            <div style="font-size:12.5px;font-weight:500;">DO-2024-0279</div>
+            <div style="font-size:11px;color:var(--erp-text-muted);">ByteHouse · Usman Malik</div>
+          </div>
+          <span class="badge-erp badge-erp-success">Delivered</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="dashboard-grid-row3 mb-4">
+
+  {# ── Invoices Widget ───────────────────────────────────────────────── #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.45s">
+    <div class="card-header-erp">
+      <span class="card-title-erp"><i class="bi bi-receipt"></i>Invoices</span>
+      <div class="card-actions">
+        <a href="{% url 'invoices:list' %}" class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm">
+          <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+    <div class="card-body-erp">
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <div class="p-2 rounded-2" style="background:var(--erp-warning-bg);">
+            <div style="font-size:18px;font-weight:700;color:var(--erp-warning);" id="inv-unpaid">42</div>
+            <div style="font-size:11px;color:var(--erp-text-muted);">Unpaid</div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="p-2 rounded-2" style="background:var(--erp-danger-bg);">
+            <div style="font-size:18px;font-weight:700;color:var(--erp-danger);" id="inv-overdue">11</div>
+            <div style="font-size:11px;color:var(--erp-text-muted);">Overdue</div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="p-2 rounded-2" style="background:var(--erp-info-bg);">
+            <div style="font-size:18px;font-weight:700;color:var(--erp-info);" id="inv-partial">18</div>
+            <div style="font-size:11px;color:var(--erp-text-muted);">Partial</div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="p-2 rounded-2" style="background:var(--erp-success-bg);">
+            <div style="font-size:18px;font-weight:700;color:var(--erp-success);" id="inv-paid">134</div>
+            <div style="font-size:11px;color:var(--erp-text-muted);">Paid</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:12px;font-weight:600;color:var(--erp-text-secondary);margin-bottom:6px;">
+        RECENT INVOICES
+      </div>
+      <div class="widget-scroll" style="max-height:160px;">
+        <div class="d-flex justify-content-between py-2 border-bottom" style="font-size:12.5px;">
+          <span class="text-primary fw-semibold">INV-2024-0921</span>
+          <span>TechMart</span>
+          <span class="badge-erp badge-erp-danger">Overdue</span>
+          <span class="fw-semibold">₨420K</span>
+        </div>
+        <div class="d-flex justify-content-between py-2 border-bottom" style="font-size:12.5px;">
+          <span class="text-primary fw-semibold">INV-2024-0920</span>
+          <span>Digital World</span>
+          <span class="badge-erp badge-erp-warning">Unpaid</span>
+          <span class="fw-semibold">₨285K</span>
+        </div>
+        <div class="d-flex justify-content-between py-2 border-bottom" style="font-size:12.5px;">
+          <span class="text-primary fw-semibold">INV-2024-0919</span>
+          <span>ByteHouse</span>
+          <span class="badge-erp badge-erp-success">Paid</span>
+          <span class="fw-semibold">₨612K</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Payments Widget ───────────────────────────────────────────────── #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.5s">
+    <div class="card-header-erp">
+      <span class="card-title-erp"><i class="bi bi-cash-stack"></i>Payments</span>
+      <div class="card-actions">
+        <a href="{% url 'payments:list' %}" class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm">
+          <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+    <div class="card-body-erp">
+      <div class="d-flex flex-column gap-2 mb-3">
+        <div class="d-flex justify-content-between align-items-center p-2 rounded-2" style="background:var(--erp-success-bg);">
+          <span style="font-size:12px;color:var(--erp-text-secondary);">Today's Collections</span>
+          <span style="font-size:16px;font-weight:700;color:var(--erp-success);" id="pay-today">₨ 1.24M</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center p-2 rounded-2" style="background:var(--erp-warning-bg);">
+          <span style="font-size:12px;color:var(--erp-text-secondary);">Cheques Due Today</span>
+          <span style="font-size:16px;font-weight:700;color:var(--erp-warning);" id="pay-cheques">₨ 680K</span>
+        </div>
+      </div>
+      <div style="font-size:12px;font-weight:600;color:var(--erp-text-secondary);margin-bottom:6px;">
+        RECENT PAYMENTS
+      </div>
+      <div class="widget-scroll" style="max-height:160px;">
+        <div class="d-flex justify-content-between py-2 border-bottom" style="font-size:12px;">
+          <span>Digital World</span><span class="text-muted">Cash</span>
+          <span class="text-success fw-semibold">₨450K</span>
+        </div>
+        <div class="d-flex justify-content-between py-2 border-bottom" style="font-size:12px;">
+          <span>TechMart</span><span class="text-muted">Cheque</span>
+          <span class="text-success fw-semibold">₨300K</span>
+        </div>
+        <div class="d-flex justify-content-between py-2 border-bottom" style="font-size:12px;">
+          <span>MicroHub</span><span class="text-muted">Bank TT</span>
+          <span class="text-success fw-semibold">₨490K</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Ledger / Aging Widget ─────────────────────────────────────────── #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.55s">
+    <div class="card-header-erp">
+      <span class="card-title-erp"><i class="bi bi-journal-text"></i>Client Aging</span>
+      <div class="card-actions">
+        <a href="{% url 'ledger:list' %}" class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm">
+          <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+    <div class="card-body-erp">
+      <div class="d-flex gap-2 mb-3 flex-wrap" style="font-size:11.5px;">
+        <div class="flex-grow-1 p-2 rounded-2 text-center" style="background:var(--erp-success-bg);">
+          <div style="font-weight:700;color:var(--erp-success);">₨6.2M</div>
+          <div class="text-muted">0–30 days</div>
+        </div>
+        <div class="flex-grow-1 p-2 rounded-2 text-center" style="background:var(--erp-info-bg);">
+          <div style="font-weight:700;color:var(--erp-info);">₨5.1M</div>
+          <div class="text-muted">31–60 days</div>
+        </div>
+        <div class="flex-grow-1 p-2 rounded-2 text-center" style="background:var(--erp-warning-bg);">
+          <div style="font-weight:700;color:var(--erp-warning);">₨4.5M</div>
+          <div class="text-muted">61–90 days</div>
+        </div>
+        <div class="flex-grow-1 p-2 rounded-2 text-center" style="background:var(--erp-danger-bg);">
+          <div style="font-weight:700;color:var(--erp-danger);">₨2.8M</div>
+          <div class="text-muted">&gt;90 days</div>
+        </div>
+      </div>
+      <div style="font-size:12px;font-weight:600;color:var(--erp-text-secondary);margin-bottom:8px;">TOP BALANCES</div>
+      <div class="widget-scroll" style="max-height:150px;">
+        {% for client in top_clients %}
+        <div class="d-flex align-items-center gap-2 py-2 border-bottom" style="font-size:12px;">
+          <span class="flex-grow-1 fw-medium">{{ client.name }}</span>
+          <div class="aging-bar"><div class="aging-fill bg-primary" data-width="{{ client.pct|default:80 }}" style="width:80%;"></div></div>
+          <span class="fw-semibold text-primary">₨{{ client.balance }}</span>
+        </div>
+        {% empty %}
+        <div class="d-flex align-items-center gap-2 py-2 border-bottom" style="font-size:12px;">
+          <span class="flex-grow-1 fw-medium">TechMart Pvt Ltd</span>
+          <div class="aging-bar"><div class="aging-fill bg-primary" style="width:80%;"></div></div>
+          <span class="fw-semibold text-primary">₨2.3M</span>
+        </div>
+        <div class="d-flex align-items-center gap-2 py-2 border-bottom" style="font-size:12px;">
+          <span class="flex-grow-1 fw-medium">Digital World</span>
+          <div class="aging-bar"><div class="aging-fill" style="width:62%;background:var(--erp-info);"></div></div>
+          <span class="fw-semibold" style="color:var(--erp-info);">₨1.8M</span>
+        </div>
+        <div class="d-flex align-items-center gap-2 py-2 border-bottom" style="font-size:12px;">
+          <span class="flex-grow-1 fw-medium">MicroHub Corp</span>
+          <div class="aging-bar"><div class="aging-fill bg-warning" style="width:45%;"></div></div>
+          <span class="fw-semibold text-warning">₨1.3M</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# ── Container / Shipment Tracker ─────────────────────────────────────── #}
+<div class="card-erp animate-fade-up mb-4" style="animation-delay:.6s">
+  <div class="card-header-erp">
+    <span class="card-title-erp"><i class="bi bi-ship"></i>Container & Shipment Tracker</span>
+    <div class="card-actions">
+      <button class="btn-erp btn-erp-ghost btn-erp-sm">
+        <i class="bi bi-plus-lg me-1"></i>Add Container
+      </button>
+    </div>
+  </div>
+  <div class="card-body-erp">
+    <div class="table-erp-wrapper">
+      <table class="table-erp">
+        <thead>
+          <tr>
+            <th>Container #</th>
+            <th>Supplier</th>
+            <th>Origin</th>
+            <th>ETA</th>
+            <th>Import Cost</th>
+            <th>Landed Cost</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="container-tbody">
+          <tr>
+            <td class="font-mono text-primary fw-semibold">MSCU-782145</td>
+            <td>Shenzhen Tech Co.</td>
+            <td>China</td>
+            <td>Oct 12, 2024</td>
+            <td>₨ 3.2M</td>
+            <td>₨ 3.85M</td>
+            <td><span class="badge-erp badge-erp-info">In Transit</span></td>
+            <td>
+              <button class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm" title="View details">
+                <i class="bi bi-eye"></i>
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td class="font-mono text-primary fw-semibold">OOLU-441892</td>
+            <td>HK Electronics Ltd.</td>
+            <td>Hong Kong</td>
+            <td>Oct 8, 2024</td>
+            <td>₨ 5.1M</td>
+            <td>₨ 6.22M</td>
+            <td><span class="badge-erp badge-erp-success">Arrived</span></td>
+            <td>
+              <button class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm" title="View details">
+                <i class="bi bi-eye"></i>
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td class="font-mono text-primary fw-semibold">COSU-990312</td>
+            <td>Guangzhou Cables</td>
+            <td>China</td>
+            <td>Oct 20, 2024</td>
+            <td>₨ 1.8M</td>
+            <td>₨ 2.14M</td>
+            <td><span class="badge-erp badge-erp-warning">Customs</span></td>
+            <td>
+              <button class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm" title="View details">
+                <i class="bi bi-eye"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ROW 4 – Activity Feed & Alerts #}
+<div class="dashboard-grid-row2 mb-4">
+
+  {# Activity Feed #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.65s">
+    <div class="card-header-erp">
+      <span class="card-title-erp"><i class="bi bi-activity"></i>Live Activity Feed</span>
+      <div class="card-actions">
+        <span class="badge-erp badge-erp-success" id="feed-live-badge">
+          <i class="bi bi-circle-fill me-1" style="font-size:7px;"></i>Live
+        </span>
+      </div>
+    </div>
+    <div class="card-body-erp p-0">
+      <div class="activity-feed widget-scroll px-3" id="activity-feed" style="max-height:340px;">
+        {# Populated by JS auto-refresh #}
+      </div>
+    </div>
+  </div>
+
+  {# Alerts Panel #}
+  <div class="card-erp animate-fade-up" style="animation-delay:.7s">
+    <div class="card-header-erp">
+      <span class="card-title-erp"><i class="bi bi-bell-fill"></i>Alerts &amp; Warnings</span>
+      <div class="card-actions">
+        <button class="btn-erp btn-erp-ghost btn-erp-sm" id="mark-all-read-btn">
+          Mark all read
+        </button>
+      </div>
+    </div>
+    <div class="card-body-erp p-3">
+      <div class="widget-scroll" id="alerts-panel" style="max-height:340px;">
+        <div class="alert-strip alert-strip-danger mb-2">
+          <i class="bi bi-credit-card-2-back-fill flex-shrink-0"></i>
+          <div>
+            <strong>Credit Limit Exceeded</strong><br>
+            <small>TechMart Pvt Ltd – limit ₨2M, balance ₨2.3M</small>
+          </div>
+        </div>
+        <div class="alert-strip alert-strip-warning mb-2">
+          <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+          <div>
+            <strong>Stock Below Minimum</strong><br>
+            <small>USB-C Cables 3A – only 12 pcs left (min: 100)</small>
+          </div>
+        </div>
+        <div class="alert-strip alert-strip-warning mb-2">
+          <i class="bi bi-clock-fill flex-shrink-0"></i>
+          <div>
+            <strong>Invoice Overdue – 15 days</strong><br>
+            <small>INV-2024-0891 · ByteHouse Corp · ₨340,000</small>
+          </div>
+        </div>
+        <div class="alert-strip alert-strip-info mb-2">
+          <i class="bi bi-ship flex-shrink-0"></i>
+          <div>
+            <strong>Container Arrived</strong><br>
+            <small>OOLU-441892 – HK Electronics – Port Qasim</small>
+          </div>
+        </div>
+        <div class="alert-strip alert-strip-warning mb-2">
+          <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+          <div>
+            <strong>Stock Below Minimum</strong><br>
+            <small>DDR4 16GB RAM – only 8 pcs left (min: 50)</small>
+          </div>
+        </div>
+        <div class="alert-strip alert-strip-danger mb-2">
+          <i class="bi bi-clock-fill flex-shrink-0"></i>
+          <div>
+            <strong>Invoice Overdue – 30 days</strong><br>
+            <small>INV-2024-0870 · MicroHub Corp · ₨680,000</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'js/modules/dashboard.js' %}"></script>
+{% endblock %}

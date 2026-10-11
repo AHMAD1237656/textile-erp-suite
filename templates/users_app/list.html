@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Users &amp; Roles{% endblock %}
+{% block meta_description %}Manage system operators, branch assignments, and role access{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-people text-primary me-2" aria-hidden="true"></i>Users &amp; Staff Administration
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Users</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'roles:matrix' %}" class="btn-erp btn-erp-outline btn-erp-sm">
+      <i class="bi bi-shield-lock me-1"></i>Permission Matrix
+    </a>
+    <button class="btn-erp btn-erp-primary btn-erp-sm" onclick="ERP.toast('User invitation modal opened','info')">
+      <i class="bi bi-person-plus me-1"></i>Add User
+    </button>
+  </div>
+</div>
+
+{# ── KPI Cards ─────────────────────────────────────────────────────────── #}
+<div class="kpi-grid mb-4" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="kpi-card" style="--kpi-accent:#1E5EFF">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-people"></i></div></div>
+    <div class="kpi-value">{{ stats.total_users|default:"5" }}</div>
+    <div class="kpi-label">Total System Users</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#10B981">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-person-check"></i></div></div>
+    <div class="kpi-value text-success">{{ stats.active_users|default:"4" }}</div>
+    <div class="kpi-label">Active Accounts</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#8B5CF6">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-shield-shaded"></i></div></div>
+    <div class="kpi-value text-primary">{{ stats.admin_count|default:"1" }}</div>
+    <div class="kpi-label">System Administrators</div>
+  </div>
+</div>
+
+{# ── Users Table ─────────────────────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-body-erp p-0">
+    <div class="table-responsive">
+      <table class="table-erp w-100">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Branch / Warehouse</th>
+            <th>Last Active</th>
+            <th class="text-center">Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="navbar-avatar" style="width:32px;height:32px;font-size:12px;">{{ u.name|slice:":1" }}</div>
+                <div>
+                  <div class="fw-semibold">{{ u.name }}</div>
+                  <div class="text-muted font-monospace" style="font-size:11px;">@{{ u.username }}</div>
+                </div>
+              </div>
+            </td>
+            <td>{{ u.email }}</td>
+            <td>
+              <span class="badge {% if u.role == 'Admin' %}bg-primary{% elif u.role == 'Manager' %}bg-info{% else %}bg-secondary{% endif %}">
+                {{ u.role }}
+              </span>
+            </td>
+            <td>{{ u.branch }}</td>
+            <td><span class="text-muted" style="font-size:12px;">{{ u.last_login }}</span></td>
+            <td class="text-center">
+              {% if u.status == 'Active' %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Active</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <button class="btn btn-outline-secondary btn-sm" onclick="ERP.toast('Editing user {{ u.username }}...','info')">
+                <i class="bi bi-pencil"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}New Payment / Receipt Voucher{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-cash-stack text-primary me-2" aria-hidden="true"></i>Create Payment / Receipt Voucher
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <a href="{% url 'payments:list' %}">Payments</a>
+      <span class="sep">›</span>
+      <span aria-current="page">New Voucher</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'payments:list' %}" class="btn-erp btn-erp-ghost">Cancel</a>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card-erp">
+      <div class="card-header-erp"><h3 class="card-title-erp">Voucher Information</h3></div>
+      <div class="card-body-erp">
+        <form method="post" action="{% url 'payments:create' %}">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label-erp">Voucher Type</label>
+              <select class="form-select" name="voucher_type">
+                <option value="receipt">Customer Receipt (Money In)</option>
+                <option value="payment">Supplier / Expense Payment (Money Out)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-erp">Payment Mode</label>
+              <select class="form-select" name="mode">
+                <option value="bank_transfer">Bank Transfer / Online FT</option>
+                <option value="cheque">Cheque / Pay Order</option>
+                <option value="cash">Cash Counter</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-erp">Account / Bank</label>
+              <select class="form-select" name="account">
+                <option value="Meezan Bank (Main A/C 0102)">Meezan Bank (Main A/C 0102)</option>
+                <option value="Habib Bank Ltd (HBL 9812)">Habib Bank Ltd (HBL 9812)</option>
+                <option value="Cash in Hand (Karachi Branch)">Cash in Hand (Karachi Branch)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-erp">Party (Customer / Supplier)</label>
+              <input type="text" class="form-control" name="party" placeholder="e.g. TechMart Pvt Ltd" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-erp">Amount (PKR)</label>
+              <input type="number" class="form-control" name="amount" placeholder="e.g. 250000" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-erp">Transaction Reference / Cheque #</label>
+              <input type="text" class="form-control" name="reference" placeholder="e.g. FT-882194">
+            </div>
+            <div class="col-12">
+              <label class="form-label-erp">Remarks</label>
+              <textarea class="form-control" rows="2" name="notes" placeholder="Notes or invoice reference..."></textarea>
+            </div>
+            <div class="col-12 mt-4 text-end">
+              <button type="submit" class="btn-erp btn-erp-primary">
+                <i class="bi bi-check2-circle me-1"></i>Save &amp; Post Voucher
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

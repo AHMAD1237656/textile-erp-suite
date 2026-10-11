@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Products{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+<style>
+/* Products list page extras */
+.stock-bar { height: 5px; border-radius: 3px; background: var(--erp-border); min-width: 60px; }
+.stock-fill { height: 100%; border-radius: 3px; }
+.product-image { width: 38px; height: 38px; object-fit: cover; border-radius: var(--radius-xs);
+                  background: var(--erp-bg); border: 1px solid var(--erp-border); }
+.product-image-placeholder { width:38px;height:38px;border-radius:var(--radius-xs);
+  background:var(--erp-primary-ultra);display:flex;align-items:center;
+  justify-content:center;color:var(--erp-primary);font-size:16px;border:1px solid var(--erp-border); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── Page header ─────────────────────────────────────────────────────── #}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-box-seam text-primary me-2" aria-hidden="true"></i>Products
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Products</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <button class="btn-erp btn-erp-ghost btn-erp-sm" onclick="$('#dt-products').DataTable().ajax.reload()">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+    <button class="btn-erp btn-erp-outline btn-erp-sm" id="btn-col-visibility">
+      <i class="bi bi-layout-three-columns me-1"></i>Columns
+    </button>
+    {% if erp_permissions.can_manage_products %}
+    <button class="btn-erp btn-erp-primary" id="btn-new"
+            data-bs-toggle="modal" data-bs-target="#productModal"
+            onclick="openProductModal()"
+            aria-label="Add new product (keyboard shortcut: N)">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Product
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Stats strip ─────────────────────────────────────────────────────── #}
+<div class="kpi-grid stagger-children mb-4" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="kpi-card" style="--kpi-accent:#1E5EFF;cursor:default;">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-box-seam"></i></div>
+    </div>
+    <div class="kpi-value" id="stat-total-products">—</div>
+    <div class="kpi-label">Total Products</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#10B981;cursor:default;">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-check-circle"></i></div>
+    </div>
+    <div class="kpi-value" id="stat-active">—</div>
+    <div class="kpi-label">Active SKUs</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#EF4444;cursor:default;">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div>
+    </div>
+    <div class="kpi-value" id="stat-low-stock">—</div>
+    <div class="kpi-label">Low-Stock Items</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#F59E0B;cursor:default;">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-currency-rupee"></i></div>
+    </div>
+    <div class="kpi-value" id="stat-stock-value">—</div>
+    <div class="kpi-label">Total Stock Value</div>
+  </div>
+</div>
+
+{# ── Filters ─────────────────────────────────────────────────────────── #}
+<div class="card-erp mb-4">
+  <div class="card-body-erp">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label-erp" for="filter-search">Search</label>
+        <div class="position-relative">
+          <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--erp-text-muted);"></i>
+          <input type="text" id="filter-search" class="form-input-erp" style="padding-left:34px;"
+                 placeholder="Name, SKU, barcode…" aria-label="Search products">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label-erp" for="filter-category">Category</label>
+        <select id="filter-category" class="form-select-erp" aria-label="Filter by category">
+          <option value="">All Categories</option>
+          <option>Chargers</option><option>Memory</option><option>Cables</option>
+          <option>Hubs</option><option>Storage</option><option>Power</option>
+          <option>Peripherals</option><option>Networking</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label-erp" for="filter-status">Status</label>
+        <select id="filter-status" class="form-select-erp" aria-label="Filter by status">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="discontinued">Discontinued</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn-erp btn-erp-ghost w-100" id="btn-clear-filters">
+          <i class="bi bi-x-circle me-1"></i>Clear
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Products DataTable ───────────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-header-erp">
+    <span class="card-title-erp"><i class="bi bi-table"></i>Product List</span>
+    <div class="card-actions">
+      {# Bulk actions – shown when rows selected #}
+      <div id="bulk-actions" class="d-none d-flex align-items-center gap-2">
+        <span id="selected-count" class="text-muted" style="font-size:13px;"></span>
+        <button class="btn-erp btn-erp-danger btn-erp-sm" id="btn-bulk-delete">
+          <i class="bi bi-trash me-1"></i>Delete Selected
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-body-erp p-0">
+    <div class="table-erp-wrapper" style="border-radius:0 0 var(--radius) var(--radius);">
+      <table id="dt-products"
+             class="table-erp"
+             aria-label="Products list"
+             width="100%">
+        <thead>
+          <tr>
+            <th class="row-check">
+              <input type="checkbox" id="check-all" aria-label="Select all products">
+            </th>
+            <th>Image</th>
+            <th>SKU</th>
+            <th>Product Name</th>
+            <th>Category</th>
+            <th>Unit</th>
+            <th>Buy Price</th>
+            <th>Sell Price</th>
+            <th>Stock</th>
+            <th>Stock Level</th>
+            <th>Status</th>
+            <th class="no-print">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="products-tbody">
+          {# DataTables / sample data loaded by JS #}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# PRODUCT ADD / EDIT MODAL #}
+<div class="modal fade" id="productModal" tabindex="-1"
+     aria-labelledby="productModalLabel" aria-modal="true" role="dialog">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content border-0" style="border-radius:var(--radius);">
+
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title fw-bold d-flex align-items-center gap-2" id="productModalLabel">
+          <i class="bi bi-box-seam text-primary"></i>
+          <span id="modal-title-text">Add Product</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close modal"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <form id="product-form" novalidate aria-label="Product form">
+          {% csrf_token %}
+          <input type="hidden" id="product-id" name="product_id">
+
+          {# ── Tabs ── #}
+          <ul class="nav nav-tabs mb-4" role="tablist">
+            <li class="nav-item">
+              <button type="button" class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-basic" role="tab">
+                <i class="bi bi-info-circle me-1"></i>Basic Info
+              </button>
+            </li>
+            <li class="nav-item">
+              <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-pricing" role="tab">
+                <i class="bi bi-tag me-1"></i>Pricing & Tax
+              </button>
+            </li>
+            <li class="nav-item">
+              <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-stock" role="tab">
+                <i class="bi bi-boxes me-1"></i>Stock & Reorder
+              </button>
+            </li>
+            <li class="nav-item">
+              <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-supplier" role="tab">
+                <i class="bi bi-person-lines-fill me-1"></i>Supplier / Import
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content">
+
+            {# ── Tab 1: Basic ── #}
+            <div class="tab-pane fade show active" id="tab-basic" role="tabpanel">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label-erp" for="p-name">Product Name <span class="required">*</span></label>
+                  <input type="text" id="p-name" name="name" class="form-input-erp"
+                         placeholder="e.g. USB-C 65W GaN Charger" required aria-required="true">
+                  <div class="form-error-msg d-none" id="err-name">
+                    <i class="bi bi-exclamation-circle"></i><span></span>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label-erp" for="p-sku">SKU <span class="required">*</span></label>
+                  <input type="text" id="p-sku" name="sku" class="form-input-erp"
+                         placeholder="e.g. CHG-65W-001" required aria-required="true">
+                  <div class="form-error-msg d-none" id="err-sku">
+                    <i class="bi bi-exclamation-circle"></i><span></span>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label-erp" for="p-barcode">Barcode</label>
+                  <input type="text" id="p-barcode" name="barcode" class="form-input-erp"
+                         placeholder="Scan or type barcode">
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label-erp" for="p-status">Status</label>
+                  <select id="p-status" name="status" class="form-select-erp">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="discontinued">Discontinued</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-erp" for="p-category">Category</label>
+                  <input type="text" id="p-category" name="category_name" class="form-input-erp"
+                         list="category-options" placeholder="e.g. Chargers">
+                  <datalist id="category-options">
+                    <option>Chargers</option><option>Memory</option><option>Cables</option>
+                    <option>Hubs</option><option>Storage</option><option>Power</option>
+                    <option>Peripherals</option><option>Networking</option>
+                  </datalist>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label-erp" for="p-unit">Unit</label>
+                  <input type="text" id="p-unit" name="unit_name" class="form-input-erp"
+                         list="unit-options" placeholder="e.g. Pcs">
+                  <datalist id="unit-options">
+                    <option>Pcs</option><option>Box</option><option>Dozen</option>
+                    <option>Carton</option><option>Set</option>
+                  </datalist>
+                </div>
+                <div class="col-12">
+                  <label class="form-label-erp" for="p-desc">Description</label>
+                  <textarea id="p-desc" name="description" class="form-textarea-erp"
+                            rows="3" placeholder="Product details, specifications…"></textarea>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-erp" for="p-image">Product Image</label>
+                  <input type="file" id="p-image" name="image" class="form-input-erp"
+                         accept="image/*" style="height:auto;padding:6px;">
+                </div>
+              </div>
+            </div>
+
+            {# ── Tab 2: Pricing ── #}
+            <div class="tab-pane fade" id="tab-pricing" role="tabpanel">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label-erp" for="p-purchase-price">Purchase Price (PKR)</label>
+                  <div class="input-group-erp">
+                    <span class="input-addon-erp">₨</span>
+                    <input type="number" id="p-purchase-price" name="purchase_price"
+                           class="form-input-erp" min="0" step="0.01" placeholder="0.00">
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-erp" for="p-selling-price">
+                    Selling Price (PKR) <span class="required">*</span>
+                  </label>
+                  <div class="input-group-erp">
+                    <span class="input-addon-erp">₨</span>
+                    <input type="number" id="p-selling-price" name="selling_price"
+                           class="form-input-erp" min="0" step="0.01" placeholder="0.00" required>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-erp" for="p-wholesale-price">Wholesale Price (PKR)</label>
+                  <div class="input-group-erp">
+                    <span class="input-addon-erp">₨</span>
+                    <input type="number" id="p-wholesale-price" name="wholesale_price"
+                           class="form-input-erp" min="0" step="0.01" placeholder="0.00">
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-erp" for="p-tax">Tax Rate (%)</label>
+                  <div class="input-group-erp">
+                    <input type="number" id="p-tax" name="tax_rate"
+                           class="form-input-erp" min="0" max="100" step="0.01" placeholder="17">
+                    <span class="input-addon-erp">%</span>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-erp">Profit Margin</label>
+                  <div class="form-input-erp d-flex align-items-center" style="background:var(--erp-bg);">
+                    <span id="profit-margin-display" class="text-success fw-semibold">—</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {# ── Tab 3: Stock ── #}
+            <div class="tab-pane fade" id="tab-stock" role="tabpanel">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label-erp" for="p-current-stock">Opening Stock</label>
+                  <input type="number" id="p-current-stock" name="current_stock"
+                         class="form-input-erp" min="0" placeholder="0">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-erp" for="p-min-stock">Minimum Stock (Reorder Alert)</label>
+                  <input type="number" id="p-min-stock" name="minimum_stock"
+                         class="form-input-erp" min="0" placeholder="0">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label-erp" for="p-reorder-qty">Reorder Quantity</label>
+                  <input type="number" id="p-reorder-qty" name="reorder_qty"
+                         class="form-input-erp" min="0" placeholder="0">
+                </div>
+              </div>
+            </div>
+
+            {# ── Tab 4: Supplier / Import ── #}
+            <div class="tab-pane fade" id="tab-supplier" role="tabpanel">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label-erp" for="p-supplier">Supplier Name</label>
+                  <input type="text" id="p-supplier" name="supplier_name" class="form-input-erp"
+                         placeholder="e.g. Shenzhen Tech Co.">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label-erp" for="p-origin">Origin Country</label>
+                  <input type="text" id="p-origin" name="origin_country" class="form-input-erp"
+                         value="China" placeholder="China">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label-erp" for="p-hs">HS Code</label>
+                  <input type="text" id="p-hs" name="hs_code" class="form-input-erp"
+                         placeholder="e.g. 8544.42">
+                </div>
+              </div>
+            </div>
+
+          </div>{# /tab-content #}
+        </form>
+      </div>
+
+      <div class="modal-footer border-top">
+        <button type="button" class="btn-erp btn-erp-ghost" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn-erp btn-erp-primary" id="btn-save-product">
+          <i class="bi bi-check-lg me-1"></i>Save Product
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'js/modules/products.js' %}"></script>
+{% endblock %}

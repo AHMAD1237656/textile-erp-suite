@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Sales Invoices{% endblock %}
+{% block meta_description %}Manage and track customer sales invoices, payment statuses, and orders{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-cart-check text-primary me-2" aria-hidden="true"></i>Sales Invoices
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Sales</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'sales:create' %}" class="btn-erp btn-erp-primary">
+      <i class="bi bi-plus-lg me-1"></i>New Sales Invoice
+    </a>
+  </div>
+</div>
+
+{# ── KPI Cards ─────────────────────────────────────────────────────────── #}
+<div class="kpi-grid mb-4" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="kpi-card" style="--kpi-accent:#1E5EFF">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-receipt"></i></div>
+    </div>
+    <div class="kpi-value">₨ {{ stats.total_sales|default:"2,465,000" }}</div>
+    <div class="kpi-label">Total Invoiced</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#10B981">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-cash-coin"></i></div>
+    </div>
+    <div class="kpi-value text-success">₨ {{ stats.total_received|default:"1,810,000" }}</div>
+    <div class="kpi-label">Total Received</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#EF4444">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
+    </div>
+    <div class="kpi-value text-danger">₨ {{ stats.total_balance|default:"655,000" }}</div>
+    <div class="kpi-label">Outstanding Balance</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#8B5CF6">
+    <div class="kpi-card-header">
+      <div class="kpi-icon"><i class="bi bi-file-earmark-check"></i></div>
+    </div>
+    <div class="kpi-value">{{ stats.count|default:"5" }}</div>
+    <div class="kpi-label">Total Orders</div>
+  </div>
+</div>
+
+{# ── Filter toolbar ─────────────────────────────────────────────────────── #}
+<div class="card-erp mb-3">
+  <div class="card-body-erp py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div class="d-flex align-items-center gap-2">
+      <a href="?status=all" class="btn-erp btn-erp-sm {% if selected_status == 'all' or not selected_status %}btn-erp-primary{% else %}btn-erp-ghost{% endif %}">All</a>
+      <a href="?status=paid" class="btn-erp btn-erp-sm {% if selected_status == 'paid' %}btn-erp-primary{% else %}btn-erp-ghost{% endif %}">Paid</a>
+      <a href="?status=partial" class="btn-erp btn-erp-sm {% if selected_status == 'partial' %}btn-erp-primary{% else %}btn-erp-ghost{% endif %}">Partial</a>
+      <a href="?status=unpaid" class="btn-erp btn-erp-sm {% if selected_status == 'unpaid' %}btn-erp-primary{% else %}btn-erp-ghost{% endif %}">Unpaid</a>
+      <a href="?status=overdue" class="btn-erp btn-erp-sm {% if selected_status == 'overdue' %}btn-erp-primary{% else %}btn-erp-ghost{% endif %}">Overdue</a>
+    </div>
+    <form method="get" class="d-flex align-items-center gap-2">
+      <input type="text" name="q" value="{{ search_q }}" placeholder="Search invoice or client..." class="form-control form-control-sm" style="width:240px;">
+      <button type="submit" class="btn-erp btn-erp-ghost btn-erp-sm"><i class="bi bi-search"></i></button>
+    </form>
+  </div>
+</div>
+
+{# ── Invoices table ──────────────────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-body-erp p-0">
+    <div class="table-responsive">
+      <table class="table-erp w-100">
+        <thead>
+          <tr>
+            <th>Invoice #</th>
+            <th>Client</th>
+            <th>Date</th>
+            <th>Due Date</th>
+            <th>Warehouse</th>
+            <th class="text-end">Total</th>
+            <th class="text-end">Paid</th>
+            <th class="text-end">Balance</th>
+            <th class="text-center">Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sales %}
+          <tr>
+            <td>
+              <span class="fw-semibold text-primary font-monospace">{{ s.number }}</span>
+              <div class="text-muted" style="font-size:11px;">{{ s.items_count }} items</div>
+            </td>
+            <td>
+              <div class="fw-medium">{{ s.client_name }}</div>
+              <div class="text-muted" style="font-size:11px;"><i class="bi bi-geo-alt me-1"></i>{{ s.client_city }}</div>
+            </td>
+            <td>{{ s.date }}</td>
+            <td>{{ s.due_date }}</td>
+            <td><span class="badge bg-light text-dark border">{{ s.warehouse }}</span></td>
+            <td class="text-end fw-semibold">₨ {{ s.total_amount }}</td>
+            <td class="text-end text-success">₨ {{ s.paid_amount }}</td>
+            <td class="text-end {% if s.balance > 0 %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+              ₨ {{ s.balance }}
+            </td>
+            <td class="text-center">
+              {% if s.status == 'paid' %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Paid</span>
+              {% elif s.status == 'partial' %}
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Partial</span>
+              {% elif s.status == 'unpaid' %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Unpaid</span>
+              {% elif s.status == 'overdue' %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Overdue</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="ERP.toast('Printing invoice {{ s.number }}...','info')" title="Print">
+                  <i class="bi bi-printer"></i>
+                </button>
+                <a href="{% url 'sales:create' %}" class="btn btn-outline-secondary btn-sm" title="Edit">
+                  <i class="bi bi-pencil"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="10" class="text-center py-4 text-muted">No sales invoices found matching criteria.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

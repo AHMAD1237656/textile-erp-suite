@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Payments &amp; Receipts{% endblock %}
+{% block meta_description %}Record payments, customer receipts, bank transactions and view cashflow{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-cash-stack text-primary me-2" aria-hidden="true"></i>Payments &amp; Receipts
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Payments</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'payments:create' %}" class="btn-erp btn-erp-primary">
+      <i class="bi bi-plus-lg me-1"></i>New Voucher
+    </a>
+  </div>
+</div>
+
+{# ── KPI Cards ─────────────────────────────────────────────────────────── #}
+<div class="kpi-grid mb-4" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="kpi-card" style="--kpi-accent:#10B981">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-arrow-down-left"></i></div></div>
+    <div class="kpi-value text-success">₨ {{ stats.total_received|default:"870,000" }}</div>
+    <div class="kpi-label">Total Receipts Collected</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#EF4444">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-arrow-up-right"></i></div></div>
+    <div class="kpi-value text-danger">₨ {{ stats.total_paid|default:"6,030,000" }}</div>
+    <div class="kpi-label">Total Supplier/Duty Disbursements</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#1E5EFF">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-bank"></i></div></div>
+    <div class="kpi-value text-primary">₨ 6,350,000</div>
+    <div class="kpi-label">Available Bank &amp; Cash Balance</div>
+  </div>
+</div>
+
+{# ── Table ───────────────────────────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-body-erp p-0">
+    <div class="table-responsive">
+      <table class="table-erp w-100">
+        <thead>
+          <tr>
+            <th>Voucher #</th>
+            <th>Type</th>
+            <th>Party / Payee</th>
+            <th>Bank / Account</th>
+            <th>Reference / Instrument</th>
+            <th>Date</th>
+            <th class="text-end">Amount</th>
+            <th class="text-center">Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in payments %}
+          <tr>
+            <td><span class="fw-semibold font-monospace text-primary">{{ p.voucher_no }}</span></td>
+            <td>
+              {% if p.type == 'Receipt' %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-arrow-down-left me-1"></i>Receipt</span>
+              {% else %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle"><i class="bi bi-arrow-up-right me-1"></i>Payment</span>
+              {% endif %}
+            </td>
+            <td class="fw-medium">{{ p.party }}</td>
+            <td>{{ p.account }}</td>
+            <td><span class="badge bg-light text-dark border">{{ p.reference }}</span></td>
+            <td>{{ p.date }}</td>
+            <td class="text-end fw-bold {% if p.type == 'Receipt' %}text-success{% else %}text-danger{% endif %}">
+              ₨ {{ p.amount }}
+            </td>
+            <td class="text-center">
+              <span class="badge bg-info-subtle text-info border border-info-subtle">{{ p.status }}</span>
+            </td>
+            <td class="text-end">
+              <button class="btn btn-outline-secondary btn-sm" onclick="ERP.toast('Printing voucher {{ p.voucher_no }}...','info')">
+                <i class="bi bi-printer"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

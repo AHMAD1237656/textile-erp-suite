@@ -1,0 +1,566 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Invoice Format Builder{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Builder layout fills entire viewport below navbar */
+.builder-wrap {
+  display: grid;
+  grid-template-columns: 220px 1fr 260px;
+  gap: 0;
+  height: calc(100vh - var(--navbar-h) - 48px);
+  margin: -24px;
+}
+.builder-side {
+  background: var(--erp-surface);
+  overflow-y: auto;
+  border-right: 1px solid var(--erp-border-soft);
+}
+.builder-side:last-child { border-right: none; border-left: 1px solid var(--erp-border-soft); }
+.builder-center {
+  background: #E8ECF4;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* Canvas sizes */
+.canvas-a4     { width: 794px; min-height: 1123px; }
+.canvas-a5     { width: 559px; min-height: 794px;  }
+.canvas-thermal{ width: 302px; min-height: 600px;  }
+
+.builder-canvas {
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0,0,0,.14);
+  padding: 32px;
+  position: relative;
+  transition: width .3s, min-height .3s;
+}
+
+/* Drag elements panel */
+.drag-section-title {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .8px; color: var(--erp-text-muted);
+  padding: 10px 14px 4px;
+}
+
+.drag-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px;
+  margin: 3px 8px;
+  border: 1.5px solid var(--erp-border);
+  border-radius: var(--radius-xs);
+  cursor: grab;
+  font-size: 12.5px; font-weight: 500;
+  color: var(--erp-text-secondary);
+  background: var(--erp-surface);
+  transition: all .15s;
+  user-select: none;
+}
+.drag-item:hover {
+  border-color: var(--erp-primary);
+  color: var(--erp-primary);
+  background: var(--erp-primary-ultra);
+}
+.drag-item:active { cursor: grabbing; }
+.drag-item i { font-size: 15px; }
+
+/* Canvas elements */
+.builder-el {
+  border: 2px dashed transparent;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: border-color .15s;
+  position: relative;
+  min-height: 20px;
+  margin: 2px 0;
+}
+.builder-el:hover { border-color: #93C5FD; }
+.builder-el.selected { border-color: var(--erp-primary); background: rgba(30,94,255,.04); }
+
+.el-handle {
+  position: absolute;
+  top: -12px; right: 0;
+  display: none;
+  gap: 4px;
+  background: var(--erp-primary);
+  border-radius: 4px 4px 0 0;
+  padding: 2px 6px;
+}
+.builder-el.selected .el-handle { display: flex; }
+.el-handle button {
+  background: none; border: none; color: #fff;
+  font-size: 11px; cursor: pointer; padding: 1px 3px;
+  display: flex; align-items: center;
+}
+.el-handle button:hover { opacity: .75; }
+
+/* Properties panel */
+.prop-section { padding: 12px 14px; border-bottom: 1px solid var(--erp-border-soft); }
+.prop-label { font-size: 11px; font-weight: 600; color: var(--erp-text-muted);
+  text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+
+/* Paper size tabs */
+.paper-tabs { display: flex; gap: 4px; padding: 12px 14px; }
+.paper-tab {
+  flex: 1; padding: 6px 4px; font-size: 11px; font-weight: 600;
+  border: 1.5px solid var(--erp-border); border-radius: var(--radius-xs);
+  background: none; cursor: pointer; transition: all .15s;
+  color: var(--erp-text-secondary); font-family: var(--font-family);
+}
+.paper-tab.active { background: var(--erp-primary); border-color: var(--erp-primary); color: #fff; }
+
+/* Templates selector */
+.template-thumb {
+  width: 100%; aspect-ratio: 3/4;
+  border: 2px solid var(--erp-border);
+  border-radius: var(--radius-xs);
+  cursor: pointer; overflow: hidden;
+  background: linear-gradient(135deg, var(--erp-bg), #fff);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--erp-text-muted);
+  transition: border-color .15s;
+}
+.template-thumb:hover, .template-thumb.active {
+  border-color: var(--erp-primary);
+}
+.template-thumb.active { border-width: 2.5px; }
+
+/* Invoice preview styles (on canvas) */
+.inv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+.inv-logo   { width: 80px; height: 50px; object-fit: contain; }
+.inv-title  { font-size: 28px; font-weight: 700; color: var(--erp-primary); letter-spacing: -0.5px; }
+.inv-meta   { font-size: 11px; color: #666; }
+.inv-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.inv-party-label { font-size: 10px; font-weight: 600; text-transform: uppercase;
+  color: var(--erp-primary); margin-bottom: 4px; letter-spacing: .5px; }
+.inv-party-name  { font-size: 13.5px; font-weight: 600; margin-bottom: 2px; }
+.inv-party-addr  { font-size: 11.5px; color: #555; line-height: 1.5; }
+.inv-items-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+.inv-items-table th {
+  background: var(--erp-primary); color: #fff; padding: 8px 10px;
+  font-size: 11px; font-weight: 600; text-align: left;
+}
+.inv-items-table td { padding: 7px 10px; font-size: 12px; border-bottom: 1px solid #eee; }
+.inv-items-table tr:last-child td { border-bottom: none; }
+.inv-totals { margin-left: auto; width: 280px; }
+.inv-total-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; }
+.inv-total-row.grand { font-size: 15px; font-weight: 700; color: var(--erp-primary);
+  border-top: 2px solid var(--erp-border); padding-top: 8px; margin-top: 4px; }
+.inv-footer { margin-top: 32px; border-top: 1px solid #eee; padding-top: 12px;
+  font-size: 11px; color: #888; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── Sticky toolbar above builder ─────────────────────────────────── #}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h1 class="page-title mb-1">
+      <i class="bi bi-layout-text-sidebar-reverse text-primary me-2"></i>Invoice Format Builder
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Invoice Format Builder</span>
+    </nav>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn-erp btn-erp-ghost" id="btn-preview" aria-label="Preview invoice">
+      <i class="bi bi-eye me-1"></i>Preview
+    </button>
+    <button class="btn-erp btn-erp-ghost" onclick="window.print()" aria-label="Print canvas">
+      <i class="bi bi-printer me-1"></i>Print
+    </button>
+    <button class="btn-erp btn-erp-outline" id="btn-save-template" aria-label="Save template">
+      <i class="bi bi-floppy me-1"></i>Save Template
+    </button>
+    <button class="btn-erp btn-erp-primary" id="btn-set-default" aria-label="Set as default template">
+      <i class="bi bi-star me-1"></i>Set as Default
+    </button>
+  </div>
+</div>
+
+<div class="builder-wrap">
+
+  {# ══ LEFT PANEL – Elements ══════════════════════════════════════════════ #}
+  <div class="builder-side" role="complementary" aria-label="Draggable elements">
+
+    <div class="drag-section-title">Brand</div>
+    <div class="drag-item" draggable="true" data-el-type="logo">
+      <i class="bi bi-image"></i>Company Logo
+    </div>
+    <div class="drag-item" draggable="true" data-el-type="company_name">
+      <i class="bi bi-building"></i>Company Name
+    </div>
+    <div class="drag-item" draggable="true" data-el-type="company_address">
+      <i class="bi bi-geo-alt"></i>Company Address
+    </div>
+
+    <div class="drag-section-title">Invoice Info</div>
+    <div class="drag-item" draggable="true" data-el-type="invoice_title">
+      <i class="bi bi-file-text"></i>Invoice Title
+    </div>
+    <div class="drag-item" draggable="true" data-el-type="invoice_number">
+      <i class="bi bi-hash"></i>Invoice Number
+    </div>
+    <div class="drag-item" draggable="true" data-el-type="invoice_date">
+      <i class="bi bi-calendar3"></i>Invoice Date
+    </div>
+    <div class="drag-item" draggable="true" data-el-type="due_date">
+      <i class="bi bi-calendar-x"></i>Due Date
+    </div>
+
+    <div class="drag-section-title">Client Block</div>
+    <div class="drag-item" draggable="true" data-el-type="client_block">
+      <i class="bi bi-person-vcard"></i>Client Block
+    </div>
+
+    <div class="drag-section-title">Content</div>
+    <div class="drag-item" draggable="true" data-el-type="items_table">
+      <i class="bi bi-table"></i>Items Table
+    </div>
+    <div class="drag-item" draggable="true" data-el-type="totals_block">
+      <i class="bi bi-calculator"></i>Totals Block
+    </div>
+    <div class="drag-item" draggable="true" data-el-type="notes">
+      <i class="bi bi-chat-square-text"></i>Notes / Terms
+    </div>
+
+    <div class="drag-section-title">Footer</div>
+    <div class="drag-item" draggable="true" data-el-type="signature">
+      <i class="bi bi-pen"></i>Signature Block
+    </div>
+    <div class="drag-item" draggable="true" data-el-type="qr_code">
+      <i class="bi bi-qr-code"></i>QR Code
+    </div>
+    <div class="drag-item" draggable="true" data-el-type="divider">
+      <i class="bi bi-dash-lg"></i>Horizontal Divider
+    </div>
+    <div class="drag-item" draggable="true" data-el-type="custom_text">
+      <i class="bi bi-type"></i>Custom Text
+    </div>
+
+    <div style="padding:12px;">
+      <div class="drag-section-title" style="padding-left:0;">Saved Templates</div>
+      <div class="row g-2">
+        <div class="col-6">
+          <div class="template-thumb active" data-template="default" title="Professional Blue">
+            <div class="text-center p-2">
+              <div style="width:100%;height:6px;background:var(--erp-primary);border-radius:2px;margin-bottom:6px;"></div>
+              <div style="font-size:9px;font-weight:600;color:var(--erp-primary);">Professional</div>
+            </div>
+          </div>
+          <div style="font-size:10px;text-align:center;margin-top:4px;color:var(--erp-text-muted);">Professional</div>
+        </div>
+        <div class="col-6">
+          <div class="template-thumb" data-template="minimal" title="Minimal Clean">
+            <div class="text-center p-2">
+              <div style="width:100%;height:2px;background:#333;border-radius:2px;margin-bottom:6px;"></div>
+              <div style="font-size:9px;font-weight:600;color:#333;">Minimal</div>
+            </div>
+          </div>
+          <div style="font-size:10px;text-align:center;margin-top:4px;color:var(--erp-text-muted);">Minimal</div>
+        </div>
+        <div class="col-6">
+          <div class="template-thumb" data-template="thermal" title="Thermal 80mm">
+            <div class="text-center p-2">
+              <div style="font-size:8px;font-weight:600;color:#555;line-height:1.8;">
+                RECEIPT<br>══════
+              </div>
+            </div>
+          </div>
+          <div style="font-size:10px;text-align:center;margin-top:4px;color:var(--erp-text-muted);">Thermal</div>
+        </div>
+        <div class="col-6">
+          <div class="template-thumb" data-template="new">
+            <div class="text-center" style="color:var(--erp-primary);font-size:22px;">+</div>
+          </div>
+          <div style="font-size:10px;text-align:center;margin-top:4px;color:var(--erp-text-muted);">New…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ══ CENTER PANEL – Canvas ══════════════════════════════════════════════ #}
+  <div class="builder-center" role="main" aria-label="Invoice canvas">
+
+    {# Paper size selector #}
+    <div class="d-flex gap-2 mb-3">
+      <button class="btn-erp btn-erp-primary btn-erp-sm paper-size-btn active" data-size="a4">A4</button>
+      <button class="btn-erp btn-erp-ghost btn-erp-sm paper-size-btn" data-size="a5">A5</button>
+      <button class="btn-erp btn-erp-ghost btn-erp-sm paper-size-btn" data-size="thermal">Thermal 80mm</button>
+    </div>
+
+    {# Droppable canvas #}
+    <div id="invoice-canvas" class="builder-canvas canvas-a4"
+         aria-label="Invoice design canvas" aria-dropeffect="copy">
+
+      {# Pre-loaded professional template #}
+      <div class="builder-el selected" data-el="header_block" id="el-header">
+        <div class="el-handle" aria-hidden="true">
+          <button title="Move up" aria-label="Move up"><i class="bi bi-arrow-up"></i></button>
+          <button title="Move down" aria-label="Move down"><i class="bi bi-arrow-down"></i></button>
+          <button class="btn-el-delete" title="Remove" aria-label="Remove element"><i class="bi bi-x"></i></button>
+        </div>
+        <div class="inv-header">
+          <div>
+            <div style="width:70px;height:42px;background:var(--erp-primary);border-radius:6px;
+                        display:flex;align-items:center;justify-content:center;margin-bottom:8px;">
+              <i class="bi bi-lightning-charge-fill" style="color:#fff;font-size:22px;"></i>
+            </div>
+            <div style="font-size:13px;font-weight:700;color:var(--erp-primary-dark);">TechImport ERP</div>
+            <div style="font-size:10.5px;color:#666;">123 Electronics Plaza, Karachi 75000<br>
+              Tel: +92-21-1234567 | info@techimport.pk</div>
+          </div>
+          <div class="text-end">
+            <div class="inv-title">INVOICE</div>
+            <div class="inv-meta">
+              <div><strong>No:</strong> INV-2024-0922</div>
+              <div><strong>Date:</strong> Oct 7, 2024</div>
+              <div><strong>Due:</strong> Nov 6, 2024</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="builder-el" data-el="client_block" id="el-client">
+        <div class="el-handle" aria-hidden="true">
+          <button title="Move up"><i class="bi bi-arrow-up"></i></button>
+          <button title="Move down"><i class="bi bi-arrow-down"></i></button>
+          <button class="btn-el-delete" title="Remove"><i class="bi bi-x"></i></button>
+        </div>
+        <div class="inv-parties">
+          <div>
+            <div class="inv-party-label">Bill To</div>
+            <div class="inv-party-name">TechMart Pvt Ltd</div>
+            <div class="inv-party-addr">
+              Shop 15, Tech Plaza<br>Saddar, Karachi<br>NTN: 1234567-8
+            </div>
+          </div>
+          <div>
+            <div class="inv-party-label">Ship To</div>
+            <div class="inv-party-name">TechMart Pvt Ltd</div>
+            <div class="inv-party-addr">
+              Warehouse #3, Hub Industrial Area<br>Hub, Balochistan
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="builder-el" data-el="items_table" id="el-items">
+        <div class="el-handle" aria-hidden="true">
+          <button title="Move up"><i class="bi bi-arrow-up"></i></button>
+          <button title="Move down"><i class="bi bi-arrow-down"></i></button>
+          <button class="btn-el-delete" title="Remove"><i class="bi bi-x"></i></button>
+        </div>
+        <table class="inv-items-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Description</th><th>SKU</th>
+              <th class="text-center">Qty</th><th>Unit</th>
+              <th class="text-end">Rate</th><th class="text-end">Disc%</th>
+              <th class="text-end">Tax%</th><th class="text-end">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td><td>USB-C 65W GaN Charger</td><td>CHG-65W-001</td>
+              <td class="text-center">50</td><td>Pcs</td>
+              <td class="text-end">₨1,299</td><td class="text-end">5%</td>
+              <td class="text-end">17%</td><td class="text-end">₨65,845</td>
+            </tr>
+            <tr>
+              <td>2</td><td>HDMI 2.1 Cable 4K 2m</td><td>CBL-HDMI-4K</td>
+              <td class="text-center">100</td><td>Pcs</td>
+              <td class="text-end">₨599</td><td class="text-end">0%</td>
+              <td class="text-end">17%</td><td class="text-end">₨70,083</td>
+            </tr>
+            <tr>
+              <td>3</td><td>Power Bank 20000mAh PD45W</td><td>PB-20K-001</td>
+              <td class="text-center">20</td><td>Pcs</td>
+              <td class="text-end">₨4,500</td><td class="text-end">10%</td>
+              <td class="text-end">17%</td><td class="text-end">₨94,770</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="builder-el" data-el="totals_block" id="el-totals">
+        <div class="el-handle" aria-hidden="true">
+          <button title="Move up"><i class="bi bi-arrow-up"></i></button>
+          <button title="Move down"><i class="bi bi-arrow-down"></i></button>
+          <button class="btn-el-delete" title="Remove"><i class="bi bi-x"></i></button>
+        </div>
+        <div class="d-flex justify-content-end">
+          <div class="inv-totals">
+            <div class="inv-total-row"><span>Subtotal</span><span>₨ 200,000</span></div>
+            <div class="inv-total-row"><span>Discount</span><span class="text-danger">- ₨ 9,950</span></div>
+            <div class="inv-total-row"><span>Tax (17% GST)</span><span>₨ 32,348</span></div>
+            <div class="inv-total-row"><span>Freight</span><span>₨ 2,300</span></div>
+            <div class="inv-total-row grand"><span>Grand Total</span><span>₨ 224,698</span></div>
+            <div class="inv-total-row" style="color:var(--erp-success);"><span>Paid</span><span>₨ 100,000</span></div>
+            <div class="inv-total-row" style="color:var(--erp-danger);font-weight:600;"><span>Balance Due</span><span>₨ 124,698</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="builder-el" data-el="notes" id="el-notes">
+        <div class="el-handle" aria-hidden="true">
+          <button title="Move up"><i class="bi bi-arrow-up"></i></button>
+          <button title="Move down"><i class="bi bi-arrow-down"></i></button>
+          <button class="btn-el-delete" title="Remove"><i class="bi bi-x"></i></button>
+        </div>
+        <div style="margin-top:20px;font-size:11.5px;color:#555;">
+          <strong>Terms &amp; Conditions:</strong>
+          Payment due within 30 days. Goods once sold are not returnable without prior approval.
+          Subject to Karachi jurisdiction.
+        </div>
+      </div>
+
+      <div class="builder-el" data-el="signature" id="el-signature">
+        <div class="el-handle" aria-hidden="true">
+          <button title="Move up"><i class="bi bi-arrow-up"></i></button>
+          <button title="Move down"><i class="bi bi-arrow-down"></i></button>
+          <button class="btn-el-delete" title="Remove"><i class="bi bi-x"></i></button>
+        </div>
+        <div class="inv-footer d-flex justify-content-between align-items-end">
+          <div>
+            <div style="border-top:1px solid #999;width:180px;margin-bottom:4px;"></div>
+            <div style="font-size:11px;">Authorised Signature</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10px;color:#999;">Generated by TechImport ERP v2.4.1</div>
+          </div>
+        </div>
+      </div>
+
+    </div>{# /invoice-canvas #}
+  </div>
+
+  {# ══ RIGHT PANEL – Properties ══════════════════════════════════════════ #}
+  <div class="builder-side" role="complementary" aria-label="Element properties">
+
+    <div class="prop-section">
+      <div class="prop-label">Selected Element</div>
+      <div id="selected-el-name" style="font-size:13px;font-weight:600;color:var(--erp-primary);">
+        Header Block
+      </div>
+    </div>
+
+    <div class="prop-section" id="props-typography">
+      <div class="prop-label">Typography</div>
+      <div class="row g-2">
+        <div class="col-7">
+          <label class="form-label-erp" for="prop-font">Font</label>
+          <select id="prop-font" class="form-select-erp" style="height:32px;font-size:12px;">
+            <option>Inter</option><option>Poppins</option><option>Roboto</option>
+            <option>Times New Roman</option><option>Arial</option>
+          </select>
+        </div>
+        <div class="col-5">
+          <label class="form-label-erp" for="prop-font-size">Size</label>
+          <input type="number" id="prop-font-size" class="form-input-erp"
+                 style="height:32px;font-size:12px;" value="12" min="6" max="72">
+        </div>
+        <div class="col-12">
+          <div class="d-flex gap-1">
+            <button class="btn-erp btn-erp-ghost btn-erp-sm btn-erp-icon" title="Bold" id="prop-bold">
+              <i class="bi bi-type-bold"></i>
+            </button>
+            <button class="btn-erp btn-erp-ghost btn-erp-sm btn-erp-icon" title="Italic" id="prop-italic">
+              <i class="bi bi-type-italic"></i>
+            </button>
+            <button class="btn-erp btn-erp-ghost btn-erp-sm btn-erp-icon" title="Align left" id="prop-align-left">
+              <i class="bi bi-text-left"></i>
+            </button>
+            <button class="btn-erp btn-erp-ghost btn-erp-sm btn-erp-icon" title="Align center" id="prop-align-center">
+              <i class="bi bi-text-center"></i>
+            </button>
+            <button class="btn-erp btn-erp-ghost btn-erp-sm btn-erp-icon" title="Align right" id="prop-align-right">
+              <i class="bi bi-text-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="prop-section" id="props-colour">
+      <div class="prop-label">Colour</div>
+      <div class="row g-2">
+        <div class="col-6">
+          <label class="form-label-erp" for="prop-text-color">Text</label>
+          <input type="color" id="prop-text-color" class="form-input-erp"
+                 value="#0D1B3E" style="height:32px;padding:2px;">
+        </div>
+        <div class="col-6">
+          <label class="form-label-erp" for="prop-bg-color">Background</label>
+          <input type="color" id="prop-bg-color" class="form-input-erp"
+                 value="#FFFFFF" style="height:32px;padding:2px;">
+        </div>
+      </div>
+    </div>
+
+    <div class="prop-section" id="props-spacing">
+      <div class="prop-label">Spacing (px)</div>
+      <div class="row g-2">
+        <div class="col-6">
+          <label class="form-label-erp" for="prop-padding">Padding</label>
+          <input type="number" id="prop-padding" class="form-input-erp"
+                 style="height:32px;font-size:12px;" value="0">
+        </div>
+        <div class="col-6">
+          <label class="form-label-erp" for="prop-margin">Margin</label>
+          <input type="number" id="prop-margin" class="form-input-erp"
+                 style="height:32px;font-size:12px;" value="0">
+        </div>
+      </div>
+    </div>
+
+    <div class="prop-section" id="props-columns">
+      <div class="prop-label">Table Columns (Items Table)</div>
+      <div class="d-flex flex-column gap-1" id="column-toggles">
+        {% for col in "Qty,Unit,SKU,Discount,Tax,Line Total,Description"|split:"," %}
+        <label class="d-flex align-items-center gap-2" style="font-size:12.5px;cursor:pointer;">
+          <input type="checkbox" checked
+                 class="column-toggle" data-col="{{ col|lower }}"
+                 aria-label="Show {{ col }} column">
+          <span>{{ col }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="prop-section">
+      <div class="prop-label">Visibility</div>
+      <label class="d-flex align-items-center gap-2" style="font-size:12.5px;cursor:pointer;">
+        <input type="checkbox" id="prop-visible" checked aria-label="Show element">
+        Show on invoice
+      </label>
+    </div>
+
+    <div class="prop-section">
+      <div class="prop-label">Actions</div>
+      <div class="d-flex flex-column gap-2">
+        <button class="btn-erp btn-erp-danger btn-erp-sm" id="btn-remove-selected">
+          <i class="bi bi-trash me-1"></i>Remove Element
+        </button>
+        <button class="btn-erp btn-erp-ghost btn-erp-sm" id="btn-duplicate-selected">
+          <i class="bi bi-copy me-1"></i>Duplicate
+        </button>
+      </div>
+    </div>
+
+  </div>{# /right panel #}
+
+</div>{# /builder-wrap #}
+
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'js/modules/invoice_builder.js' %}"></script>
+{% endblock %}

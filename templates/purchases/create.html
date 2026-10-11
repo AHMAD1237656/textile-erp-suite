@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}New Purchase Order{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-bag-plus text-primary me-2" aria-hidden="true"></i>New Import Purchase Order
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <a href="{% url 'purchases:list' %}">Purchases</a>
+      <span class="sep">›</span>
+      <span aria-current="page">New PO</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'purchases:list' %}" class="btn-erp btn-erp-ghost">Cancel</a>
+  </div>
+</div>
+
+<form method="post" action="{% url 'purchases:create' %}">
+  {% csrf_token %}
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card-erp mb-4">
+        <div class="card-header-erp"><h3 class="card-title-erp">Order Information</h3></div>
+        <div class="card-body-erp">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label-erp">PO Number</label>
+              <input type="text" class="form-control" name="po_number" value="{{ next_po_number }}" readonly>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-erp">Supplier Name</label>
+              <input type="text" class="form-control" name="supplier_name" placeholder="e.g. Shenzhen TopTech Electronics Co." required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label-erp">Country of Origin</label>
+              <select class="form-select" name="country">
+                <option value="China" selected>China</option>
+                <option value="Hong Kong">Hong Kong</option>
+                <option value="Taiwan">Taiwan</option>
+                <option value="UAE">UAE</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label-erp">Order Date</label>
+              <input type="date" class="form-control date-picker" name="order_date" value="{{ today|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label-erp">Expected Delivery (ETA)</label>
+              <input type="date" class="form-control date-picker" name="eta">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-erp">
+        <div class="card-header-erp d-flex justify-content-between align-items-center">
+          <h3 class="card-title-erp">Line Items</h3>
+          <button type="button" class="btn-erp btn-erp-outline btn-erp-sm" onclick="ERP.toast('Item added','info')">
+            <i class="bi bi-plus-lg me-1"></i>Add Item
+          </button>
+        </div>
+        <div class="card-body-erp p-0">
+          <table class="table-erp w-100 mb-0">
+            <thead>
+              <tr>
+                <th>Product / SKU</th>
+                <th style="width:120px;">Qty</th>
+                <th style="width:140px;">Unit Price (USD)</th>
+                <th style="width:140px;">Subtotal (USD)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <input type="text" class="form-control form-control-sm" value="USB-C 65W GaN Charger (CHG-65W-001)">
+                </td>
+                <td><input type="number" class="form-control form-control-sm" value="1000"></td>
+                <td><input type="number" step="0.01" class="form-control form-control-sm" value="3.10"></td>
+                <td class="fw-semibold text-end pt-2">$3,100.00</td>
+              </tr>
+              <tr>
+                <td>
+                  <input type="text" class="form-control form-control-sm" value="HDMI 2.1 Cable 4K 2m (CBL-HDMI-4K)">
+                </td>
+                <td><input type="number" class="form-control form-control-sm" value="2000"></td>
+                <td><input type="number" step="0.01" class="form-control form-control-sm" value="1.15"></td>
+                <td class="fw-semibold text-end pt-2">$2,300.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card-erp mb-4">
+        <div class="card-header-erp"><h3 class="card-title-erp">Shipping &amp; Customs</h3></div>
+        <div class="card-body-erp">
+          <div class="mb-3">
+            <label class="form-label-erp">Container #</label>
+            <input type="text" class="form-control" name="container" placeholder="e.g. MSCU-992140">
+          </div>
+          <div class="mb-3">
+            <label class="form-label-erp">Destination Port</label>
+            <select class="form-select" name="port">
+              <option value="Port Qasim, Karachi" selected>Port Qasim, Karachi</option>
+              <option value="Karachi Port (KPT)">Karachi Port (KPT)</option>
+              <option value="Air Cargo (Jinnah Int.)">Air Cargo (Jinnah Int.)</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label-erp">Target Warehouse</label>
+            <select class="form-select" name="warehouse">
+              <option value="Main Warehouse – Karachi" selected>Main Warehouse – Karachi</option>
+              <option value="Lahore Branch">Lahore Branch</option>
+              <option value="Islamabad Hub">Islamabad Hub</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-erp">
+        <div class="card-header-erp"><h3 class="card-title-erp">Summary</h3></div>
+        <div class="card-body-erp">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted">Total USD:</span>
+            <span class="fw-semibold">$5,400.00</span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted">USD/PKR Rate:</span>
+            <span>280.00</span>
+          </div>
+          <div class="d-flex justify-content-between mb-3 border-top pt-2">
+            <span class="fw-bold">Estimated PKR:</span>
+            <span class="fw-bold text-primary">₨ 1,512,000</span>
+          </div>
+          <button type="submit" class="btn-erp btn-erp-primary w-100">
+            <i class="bi bi-check2-circle me-1"></i>Save Purchase Order
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

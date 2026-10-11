@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Manufacturing &amp; Assembly{% endblock %}
+{% block meta_description %}Manage BOM, production batches, assembly orders and quality checks{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-gear-wide-connected text-primary me-2" aria-hidden="true"></i>Manufacturing &amp; Assembly
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Manufacturing</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <button class="btn-erp btn-erp-primary" onclick="ERP.toast('Work order creator launched','info')">
+      <i class="bi bi-plus-lg me-1"></i>New Work Order
+    </button>
+  </div>
+</div>
+
+{# ── KPI Cards ─────────────────────────────────────────────────────────── #}
+<div class="kpi-grid mb-4" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="kpi-card" style="--kpi-accent:#1E5EFF">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-play-circle"></i></div></div>
+    <div class="kpi-value text-primary">{{ stats.active_orders|default:"2" }}</div>
+    <div class="kpi-label">Active Work Orders</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#10B981">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div></div>
+    <div class="kpi-value text-success">{{ stats.completed_orders|default:"1" }}</div>
+    <div class="kpi-label">Completed Batches</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#8B5CF6">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-cpu"></i></div></div>
+    <div class="kpi-value">{{ stats.total_target_units|default:"1,570" }}</div>
+    <div class="kpi-label">Planned Production Units</div>
+  </div>
+</div>
+
+{# ── Manufacturing orders table ──────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-body-erp p-0">
+    <div class="table-responsive">
+      <table class="table-erp w-100">
+        <thead>
+          <tr>
+            <th>Order #</th>
+            <th>Product / Assembly</th>
+            <th>Line / Facility</th>
+            <th>Target Qty</th>
+            <th>Done Qty</th>
+            <th style="min-width:180px;">Progress</th>
+            <th>Due Date</th>
+            <th class="text-center">Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for o in orders %}
+          <tr>
+            <td><span class="fw-semibold font-monospace text-primary">{{ o.order_no }}</span></td>
+            <td class="fw-medium">{{ o.product_name }}</td>
+            <td><span class="badge bg-light text-dark border">{{ o.line }}</span></td>
+            <td>{{ o.target_qty }}</td>
+            <td><span class="fw-semibold text-success">{{ o.completed_qty }}</span></td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="progress flex-grow-1" style="height: 6px;">
+                  <div class="progress-bar {% if o.progress == 100 %}bg-success{% else %}bg-primary{% endif %}" style="width: {{ o.progress }}%"></div>
+                </div>
+                <span style="font-size:12px;font-weight:600;">{{ o.progress }}%</span>
+              </div>
+            </td>
+            <td>{{ o.due_date }}</td>
+            <td class="text-center">
+              {% if o.status == 'completed' %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Completed</span>
+              {% elif o.status == 'in_progress' %}
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">In Progress</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Planned</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <button class="btn btn-outline-secondary btn-sm" onclick="ERP.toast('Viewing work order {{ o.order_no }}...','info')">
+                <i class="bi bi-eye"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Purchase Orders & Imports{% endblock %}
+{% block meta_description %}Manage overseas suppliers, purchase orders, container tracking and shipments{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-bag-plus text-primary me-2" aria-hidden="true"></i>Purchase Orders &amp; Imports
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Purchases</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'purchases:create' %}" class="btn-erp btn-erp-primary">
+      <i class="bi bi-plus-lg me-1"></i>New Purchase Order
+    </a>
+  </div>
+</div>
+
+{# ── KPI Cards ─────────────────────────────────────────────────────────── #}
+<div class="kpi-grid mb-4" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="kpi-card" style="--kpi-accent:#1E5EFF">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-currency-dollar"></i></div></div>
+    <div class="kpi-value">${{ stats.total_usd|default:"71,700" }}</div>
+    <div class="kpi-label">Total Import Volume (USD)</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#10B981">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-cash-stack"></i></div></div>
+    <div class="kpi-value">₨ {{ stats.total_pkr|default:"20,076,000" }}</div>
+    <div class="kpi-label">Value (PKR Equivalent)</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#F59E0B">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-truck"></i></div></div>
+    <div class="kpi-value">{{ stats.in_transit_count|default:"2" }}</div>
+    <div class="kpi-label">Shipments In Transit</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#8B5CF6">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div></div>
+    <div class="kpi-value">{{ stats.total_pos|default:"4" }}</div>
+    <div class="kpi-label">Total Active POs</div>
+  </div>
+</div>
+
+{# ── Purchases table ─────────────────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-body-erp p-0">
+    <div class="table-responsive">
+      <table class="table-erp w-100">
+        <thead>
+          <tr>
+            <th>PO Number</th>
+            <th>Supplier</th>
+            <th>Order Date</th>
+            <th>ETA</th>
+            <th>Container</th>
+            <th class="text-end">USD Total</th>
+            <th class="text-end">PKR Equivalent</th>
+            <th class="text-center">Customs Status</th>
+            <th class="text-center">Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in purchases %}
+          <tr>
+            <td>
+              <span class="fw-semibold text-primary font-monospace">{{ p.po_number }}</span>
+              <div class="text-muted" style="font-size:11px;">{{ p.items_count }} items</div>
+            </td>
+            <td>
+              <div class="fw-medium">{{ p.supplier_name }}</div>
+              <div class="text-muted" style="font-size:11px;"><i class="bi bi-geo-alt me-1"></i>{{ p.country }}</div>
+            </td>
+            <td>{{ p.date }}</td>
+            <td><span class="text-danger fw-medium">{{ p.eta }}</span></td>
+            <td><span class="badge bg-light text-dark border font-monospace">{{ p.container }}</span></td>
+            <td class="text-end fw-semibold">${{ p.total_usd }}</td>
+            <td class="text-end text-muted">₨ {{ p.total_pkr }}</td>
+            <td class="text-center">
+              <span class="badge bg-info-subtle text-info border border-info-subtle">{{ p.customs_status }}</span>
+            </td>
+            <td class="text-center">
+              {% if p.status == 'received' %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Received</span>
+              {% elif p.status == 'in_transit' %}
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">In Transit</span>
+              {% elif p.status == 'at_port' %}
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">At Port</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Ordered</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <button class="btn btn-outline-secondary btn-sm" onclick="ERP.toast('Downloading PO document...','info')">
+                <i class="bi bi-file-earmark-pdf"></i>
+              </button>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="10" class="text-center py-4 text-muted">No purchase orders found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

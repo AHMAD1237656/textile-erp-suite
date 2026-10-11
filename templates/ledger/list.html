@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Client Ledger Statement{% endblock %}
+{% block meta_description %}Party ledger statement, debits, credits, running balances, and account reconciliation{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-journal-text text-primary me-2" aria-hidden="true"></i>Client Ledger Statement
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Client Ledger</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'sales:clients' %}?action=new" class="btn-erp btn-erp-primary btn-erp-sm">
+      <i class="bi bi-person-plus-fill me-1"></i>Add Client
+    </a>
+    <button class="btn-erp btn-erp-outline btn-erp-sm" onclick="window.print()">
+      <i class="bi bi-printer me-1"></i>Print Statement
+    </button>
+    <button class="btn-erp btn-erp-ghost btn-erp-sm" onclick="ERP.toast('Exporting PDF...','info')">
+      <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+    </button>
+  </div>
+</div>
+
+{# ── Client selection & Filter strip ────────────────────────────────────── #}
+<div class="card-erp mb-4">
+  <div class="card-body-erp">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label-erp">Select Customer / Account</label>
+        <select class="form-select" name="client" onchange="this.form.submit()">
+          {% for c in clients %}
+          <option value="{{ c.id }}" {% if c.id == client.id %}selected{% endif %}>
+            {{ c.name }} ({{ c.city }}) – Balance: ₨ {{ c.current_balance }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label-erp">From Date</label>
+        <input type="date" class="form-control date-picker" value="2024-09-01">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label-erp">To Date</label>
+        <input type="date" class="form-control date-picker" value="2024-10-07">
+      </div>
+      <div class="col-md-1">
+        <button type="submit" class="btn-erp btn-erp-primary w-100"><i class="bi bi-filter"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── Account Summary Header Card ────────────────────────────────────────── #}
+<div class="card-erp mb-4">
+  <div class="card-body-erp d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+      <h3 class="mb-1 fw-bold" style="font-size:18px;">{{ client.name }}</h3>
+      <div class="text-muted" style="font-size:12.5px;">
+        <i class="bi bi-geo-alt me-1"></i>{{ client.city }} &nbsp;|&nbsp; 
+        Credit Limit: ₨ {{ client.credit_limit }} &nbsp;|&nbsp;
+        Status: <span class="badge {% if client.status == 'Exceeded' %}bg-danger{% else %}bg-success{% endif %}">{{ client.status }}</span>
+      </div>
+    </div>
+    <div class="d-flex gap-4 text-end">
+      <div>
+        <div class="text-muted" style="font-size:11px;">Total Debits (Billed)</div>
+        <div class="fw-bold text-danger" style="font-size:16px;">₨ {{ total_debit }}</div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:11px;">Total Credits (Paid)</div>
+        <div class="fw-bold text-success" style="font-size:16px;">₨ {{ total_credit }}</div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:11px;">Closing Balance</div>
+        <div class="fw-bold text-primary" style="font-size:20px;">₨ {{ closing_balance }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Ledger Entries Table ─────────────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-body-erp p-0">
+    <div class="table-responsive">
+      <table class="table-erp w-100">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Reference #</th>
+            <th>Particulars / Description</th>
+            <th class="text-end">Debit (+)</th>
+            <th class="text-end">Credit (-)</th>
+            <th class="text-end">Running Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in entries %}
+          <tr>
+            <td>{{ entry.date }}</td>
+            <td><span class="fw-semibold font-monospace text-primary">{{ entry.ref }}</span></td>
+            <td>{{ entry.description }}</td>
+            <td class="text-end {% if entry.debit > 0 %}fw-semibold text-danger{% else %}text-muted{% endif %}">
+              {% if entry.debit > 0 %}₨ {{ entry.debit }}{% else %}—{% endif %}
+            </td>
+            <td class="text-end {% if entry.credit > 0 %}fw-semibold text-success{% else %}text-muted{% endif %}">
+              {% if entry.credit > 0 %}₨ {{ entry.credit }}{% else %}—{% endif %}
+            </td>
+            <td class="text-end fw-bold text-dark">
+              ₨ {{ entry.balance }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

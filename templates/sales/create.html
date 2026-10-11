@@ -1,0 +1,427 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}New Sales Invoice{% endblock %}
+
+{% block extra_css %}
+<style>
+.invoice-entry-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+.line-items-table th { background: var(--erp-bg); font-size:11px; }
+.line-items-table td { padding: 5px 6px; vertical-align: middle; }
+.line-items-table td input,
+.line-items-table td select { height: 32px; font-size: 12.5px; }
+.line-items-table tbody tr { transition: background .1s; }
+.line-items-table tbody tr:hover { background: var(--erp-primary-ultra); }
+.totals-row { display:flex; justify-content:space-between; padding:5px 0; font-size:13px; }
+.totals-row.grand-total { font-size:16px; font-weight:700; color:var(--erp-primary);
+  border-top:2px solid var(--erp-border); margin-top:6px; padding-top:8px; }
+.warning-banner { display:flex; align-items:flex-start; gap:8px; padding:10px 14px;
+  border-radius: var(--radius-xs); font-size:12.5px; margin-bottom:10px;
+  animation: fadeInUp .3s ease; }
+.warning-credit { background:var(--erp-danger-bg); border:1px solid rgba(239,68,68,.25); color:#991B1B; }
+.warning-stock  { background:var(--erp-warning-bg); border:1px solid rgba(245,158,11,.25); color:#92400E; }
+@media(max-width:1024px){ .invoice-entry-layout { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── Page header ──────────────────────────────────────────────────── #}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-receipt text-primary me-2" aria-hidden="true"></i>
+      {% if invoice %}Edit Invoice {{ invoice.number }}{% else %}New Sales Invoice{% endif %}
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <a href="{% url 'sales:list' %}">Sales</a>
+      <span class="sep">›</span>
+      <span aria-current="page">{% if invoice %}Edit{% else %}New Invoice{% endif %}</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'sales:list' %}" class="btn-erp btn-erp-ghost">
+      <i class="bi bi-x-lg me-1"></i>Cancel
+    </a>
+  </div>
+</div>
+
+{# ── Inline alerts (credit limit, stock) ─────────────────────────── #}
+<div id="inline-alerts"></div>
+
+<form id="invoice-form" method="post" novalidate aria-label="Sales invoice form">
+  {% csrf_token %}
+
+<div class="invoice-entry-layout">
+
+  {# LEFT COLUMN – Header + Line Items #}
+  <div>
+
+    {# ── Invoice header ─────────────────────────────────────────── #}
+    <div class="card-erp mb-4">
+      <div class="card-header-erp">
+        <span class="card-title-erp"><i class="bi bi-file-text"></i>Invoice Header</span>
+        <span class="badge-erp badge-erp-warning" id="invoice-status-badge">Draft</span>
+      </div>
+      <div class="card-body-erp">
+        <div class="row g-3">
+
+          <div class="col-md-6">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label-erp mb-0" for="inv-client">
+                Client / Customer <span class="required">*</span>
+              </label>
+              <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none fw-semibold"
+                      data-bs-toggle="modal" data-bs-target="#quickAddClientModal"
+                      style="font-size:12.5px;color:var(--erp-primary);" id="btn-quick-add-client">
+                <i class="bi bi-person-plus-fill me-1"></i>+ New Client
+              </button>
+            </div>
+            <select id="inv-client" name="client" class="form-select-erp client-select2" required
+                    aria-required="true" aria-label="Select client">
+              <option value="">Search client…</option>
+            </select>
+            <div id="credit-limit-bar" class="mt-2 d-none">
+              <div class="d-flex justify-content-between" style="font-size:11px;margin-bottom:3px;">
+                <span class="text-muted">Credit Used</span>
+                <span id="credit-used-label" class="fw-semibold"></span>
+              </div>
+              <div style="height:6px;border-radius:3px;background:var(--erp-border);">
+                <div id="credit-used-fill" style="height:100%;border-radius:3px;background:var(--erp-success);transition:width .4s;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label-erp" for="inv-number">Invoice No.</label>
+            <input type="text" id="inv-number" name="invoice_number"
+                   class="form-input-erp font-mono" readonly
+                   value="{{ next_invoice_number|default:'INV-2024-0922' }}"
+                   aria-label="Auto-generated invoice number">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label-erp" for="inv-date">Invoice Date <span class="required">*</span></label>
+            <input type="text" id="inv-date" name="invoice_date"
+                   class="form-input-erp date-picker" required
+                   value="{{ today|date:'Y-m-d' }}" aria-label="Invoice date">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label-erp" for="inv-due-date">Due Date</label>
+            <input type="text" id="inv-due-date" name="due_date"
+                   class="form-input-erp date-picker" aria-label="Payment due date">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label-erp" for="inv-payment-terms">Payment Terms</label>
+            <select id="inv-payment-terms" name="payment_terms" class="form-select-erp"
+                    aria-label="Payment terms">
+              <option value="net30">Net 30</option>
+              <option value="net15">Net 15</option>
+              <option value="net7">Net 7</option>
+              <option value="cod">Cash on Delivery</option>
+              <option value="advance">Advance Payment</option>
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label-erp" for="inv-warehouse">Warehouse</label>
+            <select id="inv-warehouse" name="warehouse" class="form-select-erp"
+                    aria-label="Select warehouse">
+              {% for wh in erp_warehouses %}
+              <option value="{{ wh.id }}">{{ wh.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label-erp" for="inv-salesman">Salesman</label>
+            <input type="text" id="inv-salesman" name="salesman" class="form-input-erp"
+                   list="salesman-list" placeholder="Assign salesman">
+            <datalist id="salesman-list">
+              <option>Ali Hassan</option><option>Rizwan Ahmed</option>
+              <option>Usman Malik</option><option>Sara Khan</option>
+            </datalist>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label-erp" for="inv-notes">Notes / Remarks</label>
+            <textarea id="inv-notes" name="notes" class="form-textarea-erp"
+                      rows="2" placeholder="Any special instructions or notes…"></textarea>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    {# ── Line Items ──────────────────────────────────────────────── #}
+    <div class="card-erp mb-4">
+      <div class="card-header-erp">
+        <span class="card-title-erp"><i class="bi bi-list-ul"></i>Line Items</span>
+        <div class="card-actions">
+          <button type="button" class="btn-erp btn-erp-primary btn-erp-sm" id="btn-add-row"
+                  aria-label="Add line item">
+            <i class="bi bi-plus-lg me-1"></i>Add Row
+          </button>
+        </div>
+      </div>
+      <div class="card-body-erp p-0">
+        <div class="table-erp-wrapper" style="border-radius:0;">
+          <table class="line-items-table table-erp" id="line-items-table" aria-label="Invoice line items">
+            <thead>
+              <tr>
+                <th style="width:28px;">#</th>
+                <th style="min-width:200px;">Product <span class="text-danger">*</span></th>
+                <th style="width:110px;">SKU</th>
+                <th style="width:80px;">Qty <span class="text-danger">*</span></th>
+                <th style="width:70px;">Unit</th>
+                <th style="width:120px;">Rate (₨)</th>
+                <th style="width:80px;">Disc %</th>
+                <th style="width:80px;">Tax %</th>
+                <th style="width:120px;">Line Total</th>
+                <th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="line-items-tbody">
+              {# Rows injected by JS – starts with one empty row #}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="10" class="p-2">
+                  <button type="button" class="btn-erp btn-erp-ghost btn-erp-sm" id="btn-add-row-bottom">
+                    <i class="bi bi-plus-lg me-1"></i>Add another item
+                  </button>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {# ── Additional charges ─────────────────────────────────────── #}
+    <div class="card-erp">
+      <div class="card-header-erp">
+        <span class="card-title-erp"><i class="bi bi-plus-slash-minus"></i>Additional Charges</span>
+      </div>
+      <div class="card-body-erp">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label-erp" for="inv-freight">Freight / Shipping (₨)</label>
+            <div class="input-group-erp">
+              <span class="input-addon-erp">₨</span>
+              <input type="number" id="inv-freight" name="freight"
+                     class="form-input-erp" min="0" step="0.01" value="0">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label-erp" for="inv-other-charges">Other Charges (₨)</label>
+            <div class="input-group-erp">
+              <span class="input-addon-erp">₨</span>
+              <input type="number" id="inv-other-charges" name="other_charges"
+                     class="form-input-erp" min="0" step="0.01" value="0">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label-erp" for="inv-amount-paid">Amount Paid (₨)</label>
+            <div class="input-group-erp">
+              <span class="input-addon-erp">₨</span>
+              <input type="number" id="inv-amount-paid" name="amount_paid"
+                     class="form-input-erp" min="0" step="0.01" value="0">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>{# /left column #}
+
+  {# RIGHT COLUMN – Totals & Actions #}
+  <div class="tw-sticky tw-top-20">
+
+    {# ── Totals panel ───────────────────────────────────────────── #}
+    <div class="card-erp mb-4">
+      <div class="card-header-erp">
+        <span class="card-title-erp"><i class="bi bi-calculator"></i>Invoice Summary</span>
+      </div>
+      <div class="card-body-erp">
+        <div class="totals-row">
+          <span class="text-muted">Subtotal</span>
+          <span id="total-subtotal" class="fw-semibold">₨ 0</span>
+        </div>
+        <div class="totals-row">
+          <span class="text-muted">Discount</span>
+          <span id="total-discount" class="text-danger">- ₨ 0</span>
+        </div>
+        <div class="totals-row">
+          <span class="text-muted">Tax (GST)</span>
+          <span id="total-tax" class="text-warning">+ ₨ 0</span>
+        </div>
+        <div class="totals-row">
+          <span class="text-muted">Freight</span>
+          <span id="total-freight">+ ₨ 0</span>
+        </div>
+        <div class="totals-row">
+          <span class="text-muted">Other Charges</span>
+          <span id="total-other">+ ₨ 0</span>
+        </div>
+        <div class="totals-row grand-total" aria-label="Grand total">
+          <span>Grand Total</span>
+          <span id="total-grand">₨ 0</span>
+        </div>
+        <div class="divider-erp"></div>
+        <div class="totals-row">
+          <span class="text-muted">Amount Paid</span>
+          <span id="total-paid" class="text-success fw-semibold">₨ 0</span>
+        </div>
+        <div class="totals-row" style="font-size:15px;font-weight:600;">
+          <span>Balance Due</span>
+          <span id="total-balance" class="text-danger">₨ 0</span>
+        </div>
+      </div>
+    </div>
+
+    {# ── Save actions ───────────────────────────────────────────── #}
+    <div class="card-erp">
+      <div class="card-body-erp d-flex flex-column gap-2">
+        <button type="button" class="btn-erp btn-erp-ghost w-100" id="btn-save-draft"
+                aria-label="Save as draft">
+          <i class="bi bi-file-earmark me-1"></i>Save as Draft
+        </button>
+        <button type="button" class="btn-erp btn-erp-primary w-100" id="btn-save-print"
+                aria-label="Save and print invoice">
+          <i class="bi bi-printer me-1"></i>Save &amp; Print
+        </button>
+        <button type="button" class="btn-erp btn-erp-outline w-100" id="btn-save-new"
+                aria-label="Save and create another invoice">
+          <i class="bi bi-plus-circle me-1"></i>Save &amp; New
+        </button>
+      </div>
+    </div>
+
+    {# ── Line items count summary ─────────────────────────────── #}
+    <div class="card-erp mt-4">
+      <div class="card-body-erp">
+        <div class="d-flex justify-content-between align-items-center" style="font-size:12.5px;">
+          <span class="text-muted">Items:</span>
+          <span id="items-count" class="fw-semibold">0</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-1" style="font-size:12.5px;">
+          <span class="text-muted">Total Qty:</span>
+          <span id="total-qty" class="fw-semibold">0</span>
+        </div>
+      </div>
+    </div>
+
+  </div>{# /right column #}
+</div>{# /invoice-entry-layout #}
+</form>
+
+{# ── Quick Add Client Modal ──────────────────────────────────────────────── #}
+<div class="modal fade" id="quickAddClientModal" tabindex="-1" aria-labelledby="quickAddClientLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:var(--radius);">
+      <div class="modal-header bg-light border-bottom">
+        <h5 class="modal-title fw-bold" id="quickAddClientLabel">
+          <i class="bi bi-person-plus-fill text-primary me-2"></i>Quick Add New Client
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="quickAddClientForm">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label-erp">Client / Contact Name <span class="text-danger">*</span></label>
+              <input type="text" name="name" id="qClientName" class="form-control" required placeholder="e.g. Metro Supplies Ltd">
+            </div>
+            <div class="col-12">
+              <label class="form-label-erp">Company Name</label>
+              <input type="text" name="company_name" id="qClientCompany" class="form-control" placeholder="Trading / business entity name">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-erp">Phone Number</label>
+              <input type="text" name="phone" id="qClientPhone" class="form-control" placeholder="+92-300-1234567">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-erp">City</label>
+              <input type="text" name="city" id="qClientCity" class="form-control" value="Karachi">
+            </div>
+            <div class="col-12">
+              <label class="form-label-erp">Credit Limit (PKR)</label>
+              <input type="number" name="credit_limit" id="qClientCredit" class="form-control" value="500000" min="0">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-light border-top">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveQuickClient">
+            <i class="bi bi-check2-circle me-1"></i>Save &amp; Select Client
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const qForm = document.getElementById('quickAddClientForm');
+  if (qForm) {
+    qForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const saveBtn = document.getElementById('btnSaveQuickClient');
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+
+      const formData = new FormData(qForm);
+
+      fetch('{% url "sales:clients_create" %}', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+      .then(res => res.json())
+      .then(data => {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Save &amp; Select Client';
+
+        if (data.success && data.client) {
+          const newOpt = new Option(data.client.name, data.client.id, true, true);
+          $('#inv-client').append(newOpt).trigger('change');
+          
+          const modalEl = document.getElementById('quickAddClientModal');
+          const modalInstance = bootstrap.Modal.getInstance(modalEl);
+          if (modalInstance) modalInstance.hide();
+          qForm.reset();
+
+          if (window.ERP && window.ERP.toast) {
+            ERP.toast(`Client "${data.client.name}" created and selected!`, 'success');
+          }
+        } else {
+          alert(data.message || 'Error creating client.');
+        }
+      })
+      .catch(err => {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Save &amp; Select Client';
+        alert('Failed to connect to server.');
+      });
+    });
+  }
+});
+</script>
+
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'js/modules/sales_entry.js' %}"></script>
+{% endblock %}

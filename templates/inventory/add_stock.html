@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Stock Adjustment / Inward{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-box-arrow-in-down text-primary me-2" aria-hidden="true"></i>Stock Adjustment &amp; Inward Entry
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <a href="{% url 'inventory:list' %}">Inventory</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Add Stock</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'inventory:list' %}" class="btn-erp btn-erp-ghost">Cancel</a>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card-erp">
+      <div class="card-header-erp"><h3 class="card-title-erp">Stock Movement Details</h3></div>
+      <div class="card-body-erp">
+        <form method="post" action="{% url 'inventory:add_stock' %}">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label-erp">Movement Type</label>
+              <select class="form-select" name="movement_type">
+                <option value="inward_receipt">Stock Inward (Goods Received)</option>
+                <option value="physical_audit">Physical Count Adjustment</option>
+                <option value="damage_writeoff">Damage / Defect Write-off</option>
+                <option value="transfer">Warehouse Transfer</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-erp">Target Warehouse</label>
+              <select class="form-select" name="warehouse">
+                <option value="Main Warehouse – Karachi">Main Warehouse – Karachi</option>
+                <option value="Lahore Branch">Lahore Branch</option>
+                <option value="Islamabad Hub">Islamabad Hub</option>
+              </select>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label-erp">Select Product (SKU / Name)</label>
+              <select class="form-select" name="product_sku">
+                <option value="CHG-65W-001">CHG-65W-001 – USB-C 65W GaN Charger</option>
+                <option value="RAM-DDR4-16G">RAM-DDR4-16G – DDR4 16GB 3200MHz RAM</option>
+                <option value="CBL-HDMI-4K">CBL-HDMI-4K – HDMI 2.1 Cable 4K 2m</option>
+                <option value="HUB-USB7-001">HUB-USB7-001 – USB 3.0 Hub 7-Port</option>
+                <option value="SSD-1TB-NVM">SSD-1TB-NVM – NVMe SSD 1TB Gen4</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-erp">Quantity</label>
+              <input type="number" class="form-control" name="quantity" placeholder="e.g. 50" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label-erp">Reference / Challan / Container #</label>
+              <input type="text" class="form-control" name="reference" placeholder="e.g. DC-2024-0012">
+            </div>
+            <div class="col-12">
+              <label class="form-label-erp">Remarks / Reason</label>
+              <textarea class="form-control" rows="3" name="notes" placeholder="Reason for inventory adjustment..."></textarea>
+            </div>
+            <div class="col-12 mt-4 text-end">
+              <button type="submit" class="btn-erp btn-erp-primary">
+                <i class="bi bi-check-lg me-1"></i>Commit Stock Update
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

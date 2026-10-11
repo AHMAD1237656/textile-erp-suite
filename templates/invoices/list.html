@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Invoice Management{% endblock %}
+{% block meta_description %}Search, view, download PDF and print all generated business invoices{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-receipt text-primary me-2" aria-hidden="true"></i>Invoices
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Invoices</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'invoices:builder' %}" class="btn-erp btn-erp-outline">
+      <i class="bi bi-layout-text-sidebar-reverse me-1"></i>Format Builder
+    </a>
+    <a href="{% url 'sales:create' %}" class="btn-erp btn-erp-primary">
+      <i class="bi bi-plus-lg me-1"></i>Create Invoice
+    </a>
+  </div>
+</div>
+
+<div class="card-erp">
+  <div class="card-body-erp p-0">
+    <div class="table-responsive">
+      <table class="table-erp w-100">
+        <thead>
+          <tr>
+            <th>Invoice Number</th>
+            <th>Type</th>
+            <th>Client / Party</th>
+            <th>Issue Date</th>
+            <th class="text-end">Amount</th>
+            <th class="text-center">Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for inv in invoices %}
+          <tr>
+            <td><span class="fw-semibold font-monospace text-primary">{{ inv.number }}</span></td>
+            <td><span class="badge bg-light text-dark border">{{ inv.type }}</span></td>
+            <td class="fw-medium">{{ inv.client }}</td>
+            <td>{{ inv.date }}</td>
+            <td class="text-end fw-semibold">₨ {{ inv.amount }}</td>
+            <td class="text-center">
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ inv.status }}</span>
+            </td>
+            <td class="text-end">
+              <button class="btn btn-outline-secondary btn-sm" onclick="ERP.toast('Printing invoice {{ inv.number }}...','info')">
+                <i class="bi bi-printer"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Roles & Permissions{% endblock %}
+
+{% block extra_css %}
+<style>
+.roles-layout { display:grid; grid-template-columns:260px 1fr; gap:20px; }
+.role-card {
+  padding:14px 16px; border-radius:var(--radius-sm); border:2px solid var(--erp-border);
+  cursor:pointer; transition:all .15s; margin-bottom:8px; background:var(--erp-surface);
+}
+.role-card:hover { border-color:var(--erp-primary); }
+.role-card.active { border-color:var(--erp-primary); background:var(--erp-primary-ultra); }
+.role-card-name { font-size:14px; font-weight:600; color:var(--erp-text-primary); margin-bottom:2px; }
+.role-card-desc { font-size:11.5px; color:var(--erp-text-muted); }
+.role-badge { font-size:10px; padding:2px 7px; border-radius:var(--radius-pill);
+  background:var(--erp-primary-ultra); color:var(--erp-primary); font-weight:600; }
+.perm-module-row { display:grid; grid-template-columns:180px repeat(6,1fr);
+  align-items:center; padding:10px 14px; border-bottom:1px solid var(--erp-border-soft); }
+.perm-module-row:last-child { border-bottom:none; }
+.perm-module-row:nth-child(even) { background:var(--erp-bg); }
+.perm-module-name { font-size:13px; font-weight:500; color:var(--erp-text-primary); }
+.perm-header { display:grid; grid-template-columns:180px repeat(6,1fr);
+  padding:10px 14px; background:var(--erp-bg); border-bottom:1.5px solid var(--erp-border);
+  font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.4px;
+  color:var(--erp-text-secondary); }
+.perm-toggle { width:36px; height:20px; appearance:none; background:var(--erp-border);
+  border-radius:var(--radius-pill); position:relative; cursor:pointer;
+  transition:background .2s; display:block; margin:auto; border:none; }
+.perm-toggle::after { content:''; position:absolute; width:16px; height:16px;
+  background:#fff; border-radius:50%; top:2px; left:2px;
+  transition:left .2s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+.perm-toggle:checked { background:var(--erp-success); }
+.perm-toggle:checked::after { left:18px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title"><i class="bi bi-shield-lock text-primary me-2"></i>Roles & Permissions</h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a><span class="sep">›</span>
+      <span aria-current="page">Roles & Permissions</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <button class="btn-erp btn-erp-outline btn-erp-sm" id="btn-add-role"
+            data-bs-toggle="modal" data-bs-target="#roleModal">
+      <i class="bi bi-plus-lg me-1"></i>Add Role
+    </button>
+    <button class="btn-erp btn-erp-primary btn-erp-sm" id="btn-save-perms">
+      <i class="bi bi-check-lg me-1"></i>Save Changes
+    </button>
+  </div>
+</div>
+
+<div class="roles-layout">
+
+  {# ── Left: Role list ─────────────────────────────────────────────── #}
+  <div>
+    <div class="card-erp">
+      <div class="card-header-erp">
+        <span class="card-title-erp"><i class="bi bi-people"></i>System Roles</span>
+      </div>
+      <div class="card-body-erp p-2">
+
+        <div class="role-card active" data-role="admin" onclick="selectRole(this,'admin')">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <span class="role-card-name">Admin</span>
+            <span class="role-badge">Full Access</span>
+          </div>
+          <div class="role-card-desc">Complete system access. Cannot be restricted.</div>
+        </div>
+
+        <div class="role-card" data-role="manager" onclick="selectRole(this,'manager')">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <span class="role-card-name">Manager</span>
+            <span class="role-badge">3 users</span>
+          </div>
+          <div class="role-card-desc">All modules except user management and settings.</div>
+        </div>
+
+        <div class="role-card" data-role="accountant" onclick="selectRole(this,'accountant')">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <span class="role-card-name">Accountant</span>
+            <span class="role-badge">2 users</span>
+          </div>
+          <div class="role-card-desc">Finance, invoices, payments, ledger, reports.</div>
+        </div>
+
+        <div class="role-card" data-role="storekeeper" onclick="selectRole(this,'storekeeper')">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <span class="role-card-name">Store Keeper</span>
+            <span class="role-badge">2 users</span>
+          </div>
+          <div class="role-card-desc">Inventory, products, stock in/out only.</div>
+        </div>
+
+        <div class="role-card" data-role="salesman" onclick="selectRole(this,'salesman')">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <span class="role-card-name">Salesman</span>
+            <span class="role-badge">5 users</span>
+          </div>
+          <div class="role-card-desc">Create sales invoices and view client ledger.</div>
+        </div>
+
+        <div class="role-card" data-role="production" onclick="selectRole(this,'production')">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <span class="role-card-name">Production Manager</span>
+            <span class="role-badge">1 user</span>
+          </div>
+          <div class="role-card-desc">Manufacturing orders, WIP tracking, BOM.</div>
+        </div>
+
+        <button class="btn-erp btn-erp-ghost w-100 mt-2" id="btn-new-custom-role"
+                data-bs-toggle="modal" data-bs-target="#roleModal">
+          <i class="bi bi-plus-lg me-1"></i>Create Custom Role
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  {# ── Right: Permissions matrix ───────────────────────────────────── #}
+  <div>
+    <div class="card-erp">
+      <div class="card-header-erp">
+        <span class="card-title-erp">
+          <i class="bi bi-grid-3x3"></i>
+          Permissions for: <span id="current-role-name" class="text-primary ms-1">Admin</span>
+        </span>
+        <div class="card-actions">
+          <button class="btn-erp btn-erp-ghost btn-erp-sm" id="btn-check-all">Check All</button>
+          <button class="btn-erp btn-erp-ghost btn-erp-sm" id="btn-uncheck-all">Uncheck All</button>
+        </div>
+      </div>
+
+      <div class="card-body-erp p-0">
+
+        {# Header row #}
+        <div class="perm-header">
+          <div>Module</div>
+          <div class="text-center">View</div>
+          <div class="text-center">Add</div>
+          <div class="text-center">Edit</div>
+          <div class="text-center">Delete</div>
+          <div class="text-center">Export</div>
+          <div class="text-center">Approve</div>
+        </div>
+
+        {# Permission rows #}
+        <div id="permissions-matrix">
+          {% for mod in "Dashboard,Sales,Purchase,Products,Inventory,Manufacturing,Distribution,Invoices,Payments,Client Ledger,Supplier Ledger,Reports,Invoice Builder,Users,Roles,Settings"|split:"," %}
+          <div class="perm-module-row">
+            <div class="perm-module-name">
+              <i class="bi bi-circle-fill me-2" style="font-size:6px;color:var(--erp-primary);"></i>
+              {{ mod }}
+            </div>
+            {% for perm in "view,add,edit,delete,export,approve"|split:"," %}
+            <div class="text-center">
+              <input type="checkbox"
+                     class="perm-toggle"
+                     id="perm-{{ mod|lower|slugify }}-{{ perm }}"
+                     data-module="{{ mod|lower|slugify }}"
+                     data-perm="{{ perm }}"
+                     aria-label="{{ perm|capfirst }} {{ mod }}"
+                     {% if perm == "view" or forloop.parentloop.first %}checked{% endif %}>
+            </div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+        </div>
+
+      </div>{# /card-body #}
+    </div>
+
+    {# ── Role users panel ─────────────────────────────────────────── #}
+    <div class="card-erp mt-4">
+      <div class="card-header-erp">
+        <span class="card-title-erp"><i class="bi bi-people"></i>Users with this Role</span>
+        <button class="btn-erp btn-erp-ghost btn-erp-sm">
+          <i class="bi bi-person-plus me-1"></i>Assign User
+        </button>
+      </div>
+      <div class="card-body-erp p-0">
+        <table class="table-erp" id="role-users-table">
+          <thead>
+            <tr><th>User</th><th>Email</th><th>Last Login</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="role-users-tbody">
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="navbar-avatar" style="width:30px;height:30px;font-size:12px;">A</div>
+                  <span class="fw-semibold">Admin User</span>
+                </div>
+              </td>
+              <td>admin@techimport.pk</td>
+              <td>Just now</td>
+              <td><span class="badge-erp badge-erp-success">Active</span></td>
+              <td>
+                <button class="btn-erp btn-erp-ghost btn-erp-icon btn-erp-sm" title="Remove role">
+                  <i class="bi bi-person-dash"></i>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# ── Add / Edit Role Modal ─────────────────────────────────────────── #}
+<div class="modal fade" id="roleModal" tabindex="-1" aria-labelledby="roleModalLabel" aria-modal="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+    <div class="modal-content border-0" style="border-radius:var(--radius);">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold" id="roleModalLabel">
+          <i class="bi bi-shield-plus text-primary me-2"></i>Create Custom Role
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-4 pb-4">
+        <div class="form-group-erp">
+          <label class="form-label-erp" for="new-role-name">Role Name <span class="required">*</span></label>
+          <input type="text" id="new-role-name" class="form-input-erp"
+                 placeholder="e.g. Regional Manager">
+        </div>
+        <div class="form-group-erp">
+          <label class="form-label-erp" for="new-role-desc">Description</label>
+          <textarea id="new-role-desc" class="form-textarea-erp" rows="2"
+                    placeholder="Describe what this role can do…"></textarea>
+        </div>
+        <div class="form-group-erp mb-0">
+          <label class="form-label-erp">Clone permissions from</label>
+          <select class="form-select-erp">
+            <option value="">Start fresh (no permissions)</option>
+            <option>Admin</option><option>Manager</option><option>Accountant</option>
+            <option>Store Keeper</option><option>Salesman</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn-erp btn-erp-ghost" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn-erp btn-erp-primary" id="btn-create-role">
+          <i class="bi bi-check-lg me-1"></i>Create Role
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ── Roles & Permissions UI ─────────────────────────────────────────── */
+
+/* Role selection */
+function selectRole(card, roleId) {
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  document.getElementById('current-role-name').textContent = card.querySelector('.role-card-name').textContent;
+
+  /* Load permissions for this role from a sample map */
+  const ROLE_PERMS = {
+    admin:       { all: true },
+    manager:     { dashboard:['view'], sales:['view','add','edit','export'],
+                   purchase:['view','add','edit'], products:['view','add','edit'],
+                   inventory:['view','add','edit'], invoices:['view','add','edit','export'],
+                   payments:['view','add'], reports:['view','export'] },
+    accountant:  { invoices:['view','add','edit','approve','export'],
+                   payments:['view','add','export'], 'client-ledger':['view','export'],
+                   reports:['view','export'] },
+    storekeeper: { inventory:['view','add','edit'], products:['view'] },
+    salesman:    { sales:['view','add'], 'client-ledger':['view'] },
+    production:  { manufacturing:['view','add','edit'] },
+  };
+
+  const perms = ROLE_PERMS[roleId] || {};
+  const isAdmin = perms.all;
+
+  document.querySelectorAll('.perm-toggle').forEach(toggle => {
+    const mod  = toggle.dataset.module;
+    const perm = toggle.dataset.perm;
+    toggle.checked = isAdmin || (perms[mod] && perms[mod].includes(perm));
+    toggle.disabled = (roleId === 'admin'); /* Admin cannot be modified */
+  });
+}
+
+/* Check / uncheck all */
+document.getElementById('btn-check-all')?.addEventListener('click', () => {
+  document.querySelectorAll('.perm-toggle:not(:disabled)').forEach(t => t.checked = true);
+});
+document.getElementById('btn-uncheck-all')?.addEventListener('click', () => {
+  document.querySelectorAll('.perm-toggle:not(:disabled)').forEach(t => t.checked = false);
+});
+
+/* Save permissions */
+document.getElementById('btn-save-perms')?.addEventListener('click', () => {
+  const role = document.getElementById('current-role-name').textContent;
+  ERP.toast(`Permissions for "${role}" saved.`, 'success');
+});
+
+/* Create role */
+document.getElementById('btn-create-role')?.addEventListener('click', () => {
+  const name = document.getElementById('new-role-name').value.trim();
+  if (!name) { ERP.toast('Please enter a role name.', 'warning'); return; }
+  ERP.toast(`Role "${name}" created successfully.`, 'success');
+  bootstrap.Modal.getInstance(document.getElementById('roleModal'))?.hide();
+});
+
+/* Init – select admin on load */
+document.addEventListener('DOMContentLoaded', () => {
+  const adminCard = document.querySelector('.role-card[data-role="admin"]');
+  if (adminCard) selectRole(adminCard, 'admin');
+});
+</script>
+{% endblock %}

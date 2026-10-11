@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Inventory Management{% endblock %}
+{% block meta_description %}Multi-warehouse inventory monitoring, stock tracking, and reorder alerts{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-boxes text-primary me-2" aria-hidden="true"></i>Warehouse Inventory
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Inventory</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% url 'inventory:add_stock' %}" class="btn-erp btn-erp-primary">
+      <i class="bi bi-plus-lg me-1"></i>Stock Adjustment / Inward
+    </a>
+  </div>
+</div>
+
+{# ── KPI Cards ─────────────────────────────────────────────────────────── #}
+<div class="kpi-grid mb-4" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="kpi-card" style="--kpi-accent:#1E5EFF">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-box-seam"></i></div></div>
+    <div class="kpi-value">{{ stats.total_qty|default:"2,207" }}</div>
+    <div class="kpi-label">Total Units on Hand</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#10B981">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-cash-stack"></i></div></div>
+    <div class="kpi-value">₨ {{ stats.total_value|default:"42,800,000" }}</div>
+    <div class="kpi-label">Stock Valuation (Cost)</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#EF4444">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div></div>
+    <div class="kpi-value text-danger">{{ stats.low_stock_count|default:"2" }}</div>
+    <div class="kpi-label">Low Stock Alerts</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#8B5CF6">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-building"></i></div></div>
+    <div class="kpi-value">{{ stats.warehouse_count|default:"3" }}</div>
+    <div class="kpi-label">Active Warehouses</div>
+  </div>
+</div>
+
+{# ── Filter toolbar ─────────────────────────────────────────────────────── #}
+<div class="card-erp mb-3">
+  <div class="card-body-erp py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div class="d-flex align-items-center gap-2">
+      <a href="?warehouse=all" class="btn-erp btn-erp-sm {% if selected_warehouse == 'all' or not selected_warehouse %}btn-erp-primary{% else %}btn-erp-ghost{% endif %}">All Warehouses</a>
+      <a href="?warehouse=karachi" class="btn-erp btn-erp-sm {% if selected_warehouse == 'karachi' %}btn-erp-primary{% else %}btn-erp-ghost{% endif %}">Karachi</a>
+      <a href="?warehouse=lahore" class="btn-erp btn-erp-sm {% if selected_warehouse == 'lahore' %}btn-erp-primary{% else %}btn-erp-ghost{% endif %}">Lahore</a>
+      <a href="?warehouse=islamabad" class="btn-erp btn-erp-sm {% if selected_warehouse == 'islamabad' %}btn-erp-primary{% else %}btn-erp-ghost{% endif %}">Islamabad</a>
+      <a href="?status=low" class="btn-erp btn-erp-sm {% if selected_status == 'low' %}btn-erp-danger{% else %}btn-erp-ghost text-danger{% endif %}"><i class="bi bi-exclamation-circle me-1"></i>Low Stock Only</a>
+    </div>
+    <form method="get" class="d-flex align-items-center gap-2">
+      <input type="text" name="q" value="{{ search_q }}" placeholder="Search SKU or name..." class="form-control form-control-sm" style="width:220px;">
+      <button type="submit" class="btn-erp btn-erp-ghost btn-erp-sm"><i class="bi bi-search"></i></button>
+    </form>
+  </div>
+</div>
+
+{# ── Table ───────────────────────────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-body-erp p-0">
+    <div class="table-responsive">
+      <table class="table-erp w-100">
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th>Product Name</th>
+            <th>Category</th>
+            <th>Warehouse</th>
+            <th class="text-end">Current Stock</th>
+            <th class="text-end">Reserved</th>
+            <th class="text-end">Available</th>
+            <th class="text-end">Min Threshold</th>
+            <th class="text-center">Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td><span class="fw-semibold font-monospace text-primary">{{ item.sku }}</span></td>
+            <td class="fw-medium">{{ item.name }}</td>
+            <td><span class="badge bg-light text-dark border">{{ item.category }}</span></td>
+            <td>{{ item.warehouse }}</td>
+            <td class="text-end fw-bold">{{ item.current_stock }} {{ item.unit }}</td>
+            <td class="text-end text-muted">{{ item.reserved_stock }}</td>
+            <td class="text-end fw-semibold text-success">{{ item.available_stock }}</td>
+            <td class="text-end text-muted">{{ item.min_stock }}</td>
+            <td class="text-center">
+              {% if item.status == 'low_stock' %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle"><i class="bi bi-exclamation-triangle me-1"></i>Low Stock</span>
+              {% else %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Normal</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{% url 'inventory:add_stock' %}" class="btn btn-outline-secondary btn-sm" title="Adjust Stock">
+                <i class="bi bi-arrow-left-right"></i>
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="10" class="text-center py-4 text-muted">No inventory items found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

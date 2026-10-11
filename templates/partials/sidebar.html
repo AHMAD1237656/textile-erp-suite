@@ -1,0 +1,214 @@
+{# ── templates/partials/sidebar.html ──────────────────────────────────── #}
+{# Collapsible sidebar. Becomes offcanvas drawer on mobile.              #}
+{# Active state set via request.resolver_match.url_name in context.      #}
+{% load static %}
+
+{% with current_url=request.resolver_match.url_name %}
+
+<nav id="erp-sidebar"
+     class="erp-sidebar"
+     aria-label="Main navigation">
+
+  {# ── Brand ──────────────────────────────────────────────────────── #}
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-icon" aria-hidden="true">
+      <i class="bi bi-lightning-charge-fill"></i>
+    </div>
+    <div class="sidebar-brand-text">
+      <span class="brand-name">TechImport</span>
+      <span class="brand-sub">ERP Suite</span>
+    </div>
+    <button id="sidebar-toggle-btn"
+            class="sidebar-toggle-btn ms-auto"
+            aria-label="Toggle sidebar"
+            aria-expanded="true"
+            aria-controls="erp-sidebar">
+      <i id="sidebar-toggle-icon" class="bi bi-chevron-double-left"></i>
+    </button>
+  </div>
+
+  {# ── Navigation ─────────────────────────────────────────────────── #}
+  <div class="sidebar-nav" role="list">
+
+    {# ── Overview ────────────────────── #}
+    <span class="sidebar-section-label">Overview</span>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'dashboard:index' %}"
+         class="sidebar-nav-link {% if current_url == 'index' and request.resolver_match.app_name == 'dashboard' %}active{% endif %}"
+         data-tooltip="Dashboard"
+         aria-current="{% if current_url == 'index' %}page{% else %}false{% endif %}">
+        <i class="bi bi-speedometer2 sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Dashboard</span>
+      </a>
+    </div>
+
+    {# ── Sales & Finance ─────────────── #}
+    <span class="sidebar-section-label">Sales & Finance</span>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'sales:list' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'sales' and current_url != 'clients' %}active{% endif %}"
+         data-tooltip="Sales">
+        <i class="bi bi-cart-check sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Sales</span>
+        <span class="badge bg-primary rounded-pill ms-auto" style="font-size:10px">
+          {% comment %}{{ pending_sales_count|default:0 }}{% endcomment %}
+        </span>
+      </a>
+    </div>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'sales:clients' %}"
+         class="sidebar-nav-link {% if current_url == 'clients' %}active{% endif %}"
+         data-tooltip="Clients & Customers">
+        <i class="bi bi-people sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Clients</span>
+      </a>
+    </div>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'purchases:list' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'purchases' %}active{% endif %}"
+         data-tooltip="Purchase">
+        <i class="bi bi-bag-plus sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Purchase</span>
+      </a>
+    </div>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'invoices:list' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'invoices' %}active{% endif %}"
+         data-tooltip="Invoices">
+        <i class="bi bi-receipt sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Invoices</span>
+      </a>
+    </div>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'payments:list' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'payments' %}active{% endif %}"
+         data-tooltip="Payments">
+        <i class="bi bi-cash-stack sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Payments</span>
+      </a>
+    </div>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'ledger:list' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'ledger' %}active{% endif %}"
+         data-tooltip="Client Ledger">
+        <i class="bi bi-journal-text sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Client Ledger</span>
+      </a>
+    </div>
+
+    {# ── Operations ──────────────────── #}
+    <span class="sidebar-section-label">Operations</span>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'inventory:list' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}"
+         data-tooltip="Inventory">
+        <i class="bi bi-boxes sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Inventory</span>
+      </a>
+    </div>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'manufacturing:list' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'manufacturing' %}active{% endif %}"
+         data-tooltip="Manufacturing">
+        <i class="bi bi-gear-wide-connected sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Manufacturing</span>
+      </a>
+    </div>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'distribution:list' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'distribution' %}active{% endif %}"
+         data-tooltip="Distribution">
+        <i class="bi bi-truck sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Distribution</span>
+      </a>
+    </div>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'products:list' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'products' %}active{% endif %}"
+         data-tooltip="Suppliers">
+        <i class="bi bi-person-lines-fill sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Suppliers</span>
+      </a>
+    </div>
+
+    {# ── Analytics ───────────────────── #}
+    <span class="sidebar-section-label">Analytics</span>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'reports_app:index' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'reports_app' %}active{% endif %}"
+         data-tooltip="Reports">
+        <i class="bi bi-bar-chart-line sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Reports</span>
+      </a>
+    </div>
+
+    {# ── Configuration ───────────────── #}
+    <span class="sidebar-section-label">Configuration</span>
+
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'invoices:builder' %}"
+         class="sidebar-nav-link {% if current_url == 'builder' %}active{% endif %}"
+         data-tooltip="Invoice Format Builder">
+        <i class="bi bi-layout-text-sidebar-reverse sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Invoice Builder</span>
+      </a>
+    </div>
+
+    {% if erp_permissions.can_manage_users %}
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'users_app:list' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'users_app' %}active{% endif %}"
+         data-tooltip="Users & Roles">
+        <i class="bi bi-people sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Users & Roles</span>
+      </a>
+    </div>
+    {% endif %}
+
+    {% if erp_permissions.can_manage_roles %}
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="{% url 'roles:matrix' %}"
+         class="sidebar-nav-link {% if request.resolver_match.app_name == 'roles' %}active{% endif %}"
+         data-tooltip="Roles & Permissions">
+        <i class="bi bi-shield-lock sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Roles & Permissions</span>
+      </a>
+    </div>
+    {% endif %}
+
+    {% if erp_permissions.can_manage_settings %}
+    <div class="sidebar-nav-item" role="listitem">
+      <a href="#"
+         class="sidebar-nav-link"
+         data-tooltip="Settings">
+        <i class="bi bi-gear sidebar-nav-icon" aria-hidden="true"></i>
+        <span class="sidebar-nav-text">Settings</span>
+      </a>
+    </div>
+    {% endif %}
+
+  </div>{# /sidebar-nav #}
+
+  {# ── Sidebar Footer ─────────────────────────────────────────────── #}
+  <div class="sidebar-footer">
+    <a href="#" class="sidebar-nav-link" data-tooltip="Help & Support">
+      <i class="bi bi-question-circle sidebar-nav-icon" aria-hidden="true"></i>
+      <span class="sidebar-nav-text">Help & Support</span>
+    </a>
+  </div>
+
+</nav>
+
+{% endwith %}

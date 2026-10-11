@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Distribution &amp; Logistics{% endblock %}
+{% block meta_description %}Dispatch orders, delivery challans, fleet routing, and courier tracking{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title">
+      <i class="bi bi-truck text-primary me-2" aria-hidden="true"></i>Distribution &amp; Logistics
+    </h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Distribution</span>
+    </nav>
+  </div>
+  <div class="page-header-actions">
+    <button class="btn-erp btn-erp-primary" onclick="ERP.toast('Delivery Challan generator ready','info')">
+      <i class="bi bi-plus-lg me-1"></i>New Delivery Challan
+    </button>
+  </div>
+</div>
+
+{# ── KPI Cards ─────────────────────────────────────────────────────────── #}
+<div class="kpi-grid mb-4" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="kpi-card" style="--kpi-accent:#1E5EFF">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-truck"></i></div></div>
+    <div class="kpi-value text-primary">{{ stats.out_for_delivery|default:"2" }}</div>
+    <div class="kpi-label">Active Dispatches on Road</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#10B981">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div></div>
+    <div class="kpi-value text-success">{{ stats.delivered_today|default:"1" }}</div>
+    <div class="kpi-label">Successfully Delivered Today</div>
+  </div>
+  <div class="kpi-card" style="--kpi-accent:#8B5CF6">
+    <div class="kpi-card-header"><div class="kpi-icon"><i class="bi bi-boxes"></i></div></div>
+    <div class="kpi-value">{{ stats.total_boxes|default:"97" }}</div>
+    <div class="kpi-label">Cartons / Packages In Transit</div>
+  </div>
+</div>
+
+{# ── Dispatches Table ─────────────────────────────────────────────────────── #}
+<div class="card-erp">
+  <div class="card-body-erp p-0">
+    <div class="table-responsive">
+      <table class="table-erp w-100">
+        <thead>
+          <tr>
+            <th>Challan #</th>
+            <th>Customer</th>
+            <th>Destination Address</th>
+            <th>Logistics / Courier</th>
+            <th>Cartons</th>
+            <th>Dispatch Date</th>
+            <th class="text-center">Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in dispatches %}
+          <tr>
+            <td><span class="fw-semibold font-monospace text-primary">{{ d.dc_no }}</span></td>
+            <td class="fw-medium">{{ d.client_name }}</td>
+            <td><i class="bi bi-geo-alt text-muted me-1"></i>{{ d.destination }}</td>
+            <td><span class="badge bg-light text-dark border">{{ d.driver }}</span></td>
+            <td class="fw-bold">{{ d.boxes }}</td>
+            <td>{{ d.date }}</td>
+            <td class="text-center">
+              {% if d.status == 'delivered' %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Delivered</span>
+              {% elif d.status == 'out_for_delivery' %}
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Out for Delivery</span>
+              {% elif d.status == 'in_transit' %}
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">In Transit</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Preparing</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <button class="btn btn-outline-secondary btn-sm" onclick="ERP.toast('Printing Delivery Challan {{ d.dc_no }}...','info')">
+                <i class="bi bi-printer"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
