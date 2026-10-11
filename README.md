@@ -174,7 +174,7 @@ Backend & Core:
 
 ```bash
 # Clone the repository
-git clone https://github.com/muhammad-danish/techimport-erp.git
+git clone https://github.com/AHMAD1237656/textile-erp-suite.git
 cd techimport-erp
 
 # Create virtual environment (Windows Powershell)
