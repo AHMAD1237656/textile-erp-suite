@@ -3,6 +3,26 @@
 
 {% block title %}{{ product.name }}{% endblock %}
 
+{% block extra_css %}
+<style>
+@media print {
+  body * { visibility: hidden !important; }
+  #product-qr-label, #product-qr-label * { visibility: visible !important; }
+  #product-qr-label {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 70mm;
+    padding: 6mm;
+    border: 1px solid #222;
+    color: #000;
+    background: #fff;
+  }
+  #product-qr-label img { width: 38mm; height: 38mm; }
+  #product-qr-label .no-print { display: none !important; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <div class="page-header-left">
@@ -78,6 +98,24 @@
           <span class="text-muted">Minimum Alert Limit:</span>
           <span>{{ product.minimum_stock }}</span>
         </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card-erp mb-4" id="product-qr-label">
+      <div class="card-header-erp">
+        <h3 class="card-title-erp">Product Tracking Label</h3>
+      </div>
+      <div class="card-body-erp text-center">
+        <img src="{% url 'products:product_qr_code' product.pk %}"
+             alt="QR code for {{ product.name }}" width="180" height="180">
+        <div class="fw-bold mt-2">{{ product.name }}</div>
+        <div class="font-monospace">{{ product.sku }}</div>
+        <div>{{ product.category.name|default:"Uncategorized" }} · {{ product.current_stock }} {{ product.unit.abbreviation|default:"" }}</div>
+        <button type="button" class="btn-erp btn-erp-primary btn-erp-sm mt-3 no-print"
+                onclick="window.print()">
+          <i class="bi bi-printer me-1"></i>Print Label
+        </button>
       </div>
     </div>
   </div>

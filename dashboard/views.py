@@ -1,9 +1,16 @@
 """
 Dashboard app views – Executive KPI metrics & chart data endpoints
 """
+from collections import defaultdict
+from datetime import date
+from decimal import Decimal
+
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Sum
+
+from products.models import Product
 
 SAMPLE_KPIS = {
     'today_sales': 2840000,
@@ -62,3 +69,56 @@ def api_charts(request):
         'labels': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     }
     return JsonResponse(data)
+
+
+def api_analytics(request):
+    """Return monthly sales/dispatch trends and live stock totals by category."""
+    from distribution.views import SAMPLE_DISPATCHES
+    from sales.views import SAMPLE_SALES
+
+    monthly = defaultdict(lambda: {
+        'sales': Decimal('0'),
+        'dispatches': 0,
+    })
+    for sale in SAMPLE_SALES:
+        sale_date = date.fromisoformat(str(sale['date'])[:10])
+        monthly[sale_date.strftime('%Y-%m')]['sales'] += Decimal(
+            str(sale['total_amount'])
+        )
+    for dispatch in SAMPLE_DISPATCHES:
+        if dispatch.get('status') not in {
+            'in_transit', 'out_for_delivery', 'delivered',
+        }:
+            continue
+        dispatch_date = date.fromisoformat(str(dispatch['date'])[:10])
+        monthly[dispatch_date.strftime('%Y-%m')]['dispatches'] += int(
+            dispatch.get('boxes', 0)
+        )
+
+    months = sorted(monthly)
+    category_stock = (
+        Product.objects.filter(is_deleted=False, status='active')
+        .values('category__name')
+        .annotate(stock=Sum('current_stock'), products=Count('pk'))
+        .order_by('category__name')
+    )
+    categories = [
+        {
+            'name': entry['category__name'] or 'Uncategorized',
+            'stock': float(entry['stock'] or 0),
+            'products': entry['products'],
+        }
+        for entry in category_stock
+    ]
+
+    return JsonResponse({
+        'monthly': {
+            'labels': [
+                date.fromisoformat(f'{month}-01').strftime('%b %Y')
+                for month in months
+            ],
+            'sales': [float(monthly[month]['sales']) for month in months],
+            'dispatches': [monthly[month]['dispatches'] for month in months],
+        },
+        'inventory_categories': categories,
+    })

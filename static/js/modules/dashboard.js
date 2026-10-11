@@ -291,6 +291,133 @@ function buildTopClientsChart(period = 'daily') {
   });
 }
 
+async function loadDashboardAnalytics() {
+  const salesCanvas = document.getElementById('monthlySalesDispatchChart');
+  const categoryCanvas = document.getElementById('inventoryCategoryChart');
+  if (!salesCanvas || !categoryCanvas) return;
+
+  const salesEmpty = document.getElementById('monthly-sales-dispatch-empty');
+  const categoryEmpty = document.getElementById('inventory-category-empty');
+  const showEmpty = (canvas, element, message) => {
+    canvas.classList.add('d-none');
+    if (element) {
+      element.textContent = message;
+      element.classList.remove('d-none');
+    }
+  };
+
+  if (!window.Chart) {
+    showEmpty(salesCanvas, salesEmpty, 'Charts are unavailable right now.');
+    showEmpty(categoryCanvas, categoryEmpty, 'Charts are unavailable right now.');
+    return;
+  }
+
+  try {
+    const response = await fetch(salesCanvas.dataset.url, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) {
+      throw new Error(`Dashboard analytics request failed (${response.status}).`);
+    }
+    const data = await response.json();
+    const monthly = data.monthly;
+    const hasTrendData = Array.isArray(monthly?.labels)
+      && monthly.labels.length > 0
+      && (monthly.sales.some(value => Number(value) > 0)
+        || monthly.dispatches.some(value => Number(value) > 0));
+
+    if (!hasTrendData) {
+      showEmpty(salesCanvas, salesEmpty, 'No sales or dispatch data available.');
+    } else {
+      salesCanvas.classList.remove('d-none');
+      salesEmpty?.classList.add('d-none');
+      charts.monthlySalesDispatch?.destroy();
+      charts.monthlySalesDispatch = new Chart(salesCanvas, {
+        type: 'bar',
+        data: {
+          labels: monthly.labels,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Sales (₨)',
+              data: monthly.sales,
+              backgroundColor: 'rgba(30,94,255,0.7)',
+              borderColor: COLORS.primary,
+              borderWidth: 1,
+              yAxisID: 'sales',
+            },
+            {
+              type: 'line',
+              label: 'Dispatched units',
+              data: monthly.dispatches,
+              borderColor: COLORS.accent,
+              backgroundColor: COLORS.accent,
+              tension: 0.35,
+              yAxisID: 'dispatches',
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            sales: {
+              type: 'linear',
+              position: 'left',
+              beginAtZero: true,
+              ticks: { callback: value => `₨ ${ERP.formatNumber(value)}` },
+            },
+            dispatches: {
+              type: 'linear',
+              position: 'right',
+              beginAtZero: true,
+              grid: { drawOnChartArea: false },
+            },
+          },
+        },
+      });
+    }
+
+    const categories = Array.isArray(data.inventory_categories)
+      ? data.inventory_categories.filter(item => Number(item.stock) > 0)
+      : [];
+    if (!categories.length) {
+      showEmpty(categoryCanvas, categoryEmpty, 'No inventory category data available.');
+    } else {
+      categoryCanvas.classList.remove('d-none');
+      categoryEmpty?.classList.add('d-none');
+      charts.inventoryCategory?.destroy();
+      charts.inventoryCategory = new Chart(categoryCanvas, {
+        type: 'doughnut',
+        data: {
+          labels: categories.map(item => item.name),
+          datasets: [{
+            data: categories.map(item => item.stock),
+            backgroundColor: [
+              COLORS.primary, COLORS.accent, COLORS.warning, COLORS.danger,
+              COLORS.purple, COLORS.orange, COLORS.success,
+            ],
+            borderColor: '#fff',
+            borderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '58%',
+          plugins: { legend: { position: 'right' } },
+        },
+      });
+    }
+  } catch (error) {
+    console.error('[Dashboard] Analytics failed to load:', error);
+    showEmpty(salesCanvas, salesEmpty, 'Analytics could not be loaded.');
+    showEmpty(categoryCanvas, categoryEmpty, 'Analytics could not be loaded.');
+  }
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════
    PERIOD TOGGLE
    ══════════════════════════════════════════════════════════════════════════════ */
@@ -512,6 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.loadInventoryWidget();
   });
   window.loadInventoryWidget();
+  loadDashboardAnalytics();
 
   // Build all 4 charts
   buildSalesVsPurchaseChart();

@@ -267,6 +267,43 @@
 
 </div>
 
+{# Live analytics charts #}
+<div class="dashboard-grid-row2 mb-4">
+  <div class="card-erp animate-fade-up">
+    <div class="card-header-erp">
+      <span class="card-title-erp">
+        <i class="bi bi-bar-chart-line" aria-hidden="true"></i>Monthly Sales &amp; Dispatch Trend
+      </span>
+    </div>
+    <div class="card-body-erp">
+      <div class="chart-container">
+        <canvas id="monthlySalesDispatchChart"
+                data-url="{% url 'dashboard:api_analytics' %}"
+                aria-label="Monthly sales and dispatch trend"></canvas>
+        <p id="monthly-sales-dispatch-empty" class="text-muted text-center d-none">
+          No sales or dispatch data available.
+        </p>
+      </div>
+    </div>
+  </div>
+  <div class="card-erp animate-fade-up">
+    <div class="card-header-erp">
+      <span class="card-title-erp">
+        <i class="bi bi-pie-chart" aria-hidden="true"></i>Inventory Stock by Category
+      </span>
+    </div>
+    <div class="card-body-erp">
+      <div class="chart-container">
+        <canvas id="inventoryCategoryChart"
+                aria-label="Current inventory stock by category"></canvas>
+        <p id="inventory-category-empty" class="text-muted text-center d-none">
+          No inventory category data available.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
 {# ROW 3 – Widget Cards #}
 <div class="dashboard-grid-row3 mb-4">
 

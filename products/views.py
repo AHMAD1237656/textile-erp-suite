@@ -4,7 +4,7 @@ Products app views – full CRUD + JSON API endpoints
 import json
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.db import models
 from django.db.models import Q, Sum, Count, F
@@ -12,6 +12,7 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 
 from .models import Product, Category, Unit
+from .qr_utils import generate_product_qr
 
 # ── Realistic sample data (shown when DB is empty) ───────────────────────────
 SAMPLE_PRODUCTS = [
@@ -199,6 +200,22 @@ def product_detail(request, pk):
         'product': product,
         'breadcrumbs': [('Home','/'),('Products','/products/'),(product.name, None)],
     })
+
+
+@login_required
+def product_qr_code(request, pk):
+    """Return a dynamically generated QR code for a product label."""
+    product = get_object_or_404(
+        Product.objects.select_related('category'),
+        pk=pk,
+        is_deleted=False,
+    )
+    response = HttpResponse(
+        generate_product_qr(product),
+        content_type='image/png',
+    )
+    response['Cache-Control'] = 'no-store'
+    return response
 
 
 @login_required
