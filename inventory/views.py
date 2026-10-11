@@ -3,6 +3,7 @@ Inventory app views – Warehouse stocks, batch movements, adjustments and reord
 """
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
+from django.db import models
 from django.views.decorators.http import require_GET
 
 from products.models import Product
@@ -116,3 +117,26 @@ def api_dashboard_inventory(request):
         for product in products
     ]
     return JsonResponse({'items': items})
+
+
+@require_GET
+def api_low_stock_alerts(request):
+    """Return live low-stock items for the global navigation alert menu."""
+    products = (
+        Product.objects.filter(
+            is_deleted=False,
+            status='active',
+            current_stock__lte=models.F('minimum_stock'),
+        )
+        .select_related('category')
+        .order_by('current_stock', 'name')
+    )
+    items = [{
+        'id': product.pk,
+        'name': product.name,
+        'sku': product.sku,
+        'current_stock': str(product.current_stock),
+        'reorder_level': str(product.minimum_stock),
+        'url': f'/products/{product.pk}/',
+    } for product in products]
+    return JsonResponse({'count': len(items), 'items': items})

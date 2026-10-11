@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Trail{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title"><i class="bi bi-journal-text text-primary me-2"></i>Audit Trail</h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Audit Trail</span>
+    </nav>
+  </div>
+</div>
+
+<div class="card-erp">
+  <div class="card-body-erp p-0">
+    <div class="table-responsive">
+      <table class="table-erp w-100">
+        <thead>
+          <tr>
+            <th>Time</th><th>User</th><th>Action</th><th>Module</th>
+            <th>Description</th><th>IP Address</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in page_obj %}
+          <tr>
+            <td>{{ entry.timestamp|date:"Y-m-d H:i:s" }}</td>
+            <td>{{ entry.user|default:"System" }}</td>
+            <td>{{ entry.get_action_display }}</td>
+            <td>{{ entry.module }}</td>
+            <td>{{ entry.description }}</td>
+            <td>{{ entry.ip_address|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center py-4 text-muted">No activity recorded yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="card-body-erp d-flex justify-content-between align-items-center">
+    <span class="text-muted">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    <div class="d-flex gap-2">
+      {% if page_obj.has_previous %}
+      <a class="btn-erp btn-erp-ghost btn-erp-sm" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a class="btn-erp btn-erp-ghost btn-erp-sm" href="?page={{ page_obj.next_page_number }}">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

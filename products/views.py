@@ -1,10 +1,18 @@
 """
 Products app views – full CRUD + JSON API endpoints
 """
+import csv
+from decimal import Decimal, InvalidOperation
+from io import StringIO
 import json
+import logging
+from zipfile import BadZipFile
+
+from django.contrib import messages
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
+from django.db import transaction
 from django.views.decorators.http import require_http_methods
 from django.db import models
 from django.db.models import Q, Sum, Count, F
@@ -13,6 +21,11 @@ from django.utils import timezone
 
 from .models import Product, Category, Unit
 from .qr_utils import generate_product_qr
+from audit_log.utils import log_activity
+from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
+
+logger = logging.getLogger(__name__)
 
 # ── Realistic sample data (shown when DB is empty) ───────────────────────────
 SAMPLE_PRODUCTS = [
@@ -151,6 +164,7 @@ def _save_product(request, instance):
             'categories': Category.objects.all(), 'units': Unit.objects.all(),
         })
 
+    is_update = instance is not None
     obj = instance or Product()
     obj.name           = data['name']
     obj.sku            = data['sku']
@@ -184,6 +198,12 @@ def _save_product(request, instance):
         obj.image = request.FILES['image']
 
     obj.save()
+    log_activity(
+        request,
+        'UPDATE' if is_update else 'CREATE',
+        'Products',
+        f'{"Updated" if is_update else "Created"} product {obj.sku} ({obj.name}).',
+    )
 
     if is_ajax:
         return JsonResponse({'success': True, 'id': obj.pk, 'sku': obj.sku, 'name': obj.name})
@@ -215,6 +235,186 @@ def product_qr_code(request, pk):
         content_type='image/png',
     )
     response['Cache-Control'] = 'no-store'
+    return response
+
+
+PRODUCT_IMPORT_HEADERS = {
+    'name': {'name', 'productname'},
+    'sku': {'sku', 'code'},
+    'category': {'category'},
+    'stock': {'stock', 'quantity', 'stockquantity'},
+    'reorder': {'reorderlevel', 'minimumstock', 'minstock'},
+    'unit_price': {'unitprice', 'price'},
+}
+
+
+def _normalise_import_header(value):
+    return ''.join(character for character in str(value or '').lower() if character.isalnum())
+
+
+def _read_product_import(upload):
+    extension = upload.name.rsplit('.', 1)[-1].lower()
+    if extension == 'csv':
+        try:
+            text = upload.read().decode('utf-8-sig')
+            reader = csv.reader(StringIO(text))
+            rows = list(reader)
+        except (UnicodeDecodeError, csv.Error) as error:
+            raise ValueError('The CSV file could not be read as UTF-8.') from error
+    elif extension == 'xlsx':
+        try:
+            workbook = load_workbook(upload, read_only=True, data_only=True)
+            worksheet = workbook.active
+            rows = list(worksheet.iter_rows(values_only=True))
+            workbook.close()
+        except (InvalidFileException, BadZipFile, OSError, ValueError) as error:
+            raise ValueError('The Excel file is invalid or could not be opened.') from error
+    else:
+        raise ValueError('Please upload a .csv or .xlsx file.')
+
+    if not rows:
+        raise ValueError('The uploaded file is empty.')
+
+    headers = [_normalise_import_header(value) for value in rows[0]]
+    indexes = {}
+    for field, aliases in PRODUCT_IMPORT_HEADERS.items():
+        index = next((i for i, header in enumerate(headers) if header in aliases), None)
+        if index is not None:
+            indexes[field] = index
+
+    missing = [field for field in PRODUCT_IMPORT_HEADERS if field not in indexes]
+    if missing:
+        names = {
+            'name': 'Name',
+            'sku': 'SKU',
+            'category': 'Category',
+            'stock': 'Stock/Quantity',
+            'reorder': 'Reorder Level',
+            'unit_price': 'Unit Price',
+        }
+        raise ValueError('Missing required columns: ' + ', '.join(names[field] for field in missing))
+
+    parsed_rows = []
+    for row_number, row in enumerate(rows[1:], start=2):
+        if not any(value is not None and str(value).strip() for value in row):
+            continue
+        values = {
+            field: str(row[index]).strip() if index < len(row) and row[index] is not None else ''
+            for field, index in indexes.items()
+        }
+        parsed_rows.append((row_number, values))
+    return parsed_rows
+
+
+def _import_decimal(value, label):
+    try:
+        number = Decimal(value)
+    except (InvalidOperation, TypeError, ValueError) as error:
+        raise ValueError(f'{label} must be a valid number.') from error
+    if not number.is_finite() or number < 0 or number > Decimal('999999999999.99'):
+        raise ValueError(f'{label} must be between 0 and 999999999999.99.')
+    return number.quantize(Decimal('0.01'))
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def product_import(request):
+    if request.method == 'GET':
+        return render(request, 'products/import.html', {
+            'breadcrumbs': [('Home', '/'), ('Products', '/products/'), ('Import', None)],
+        })
+
+    upload = request.FILES.get('file')
+    if not upload:
+        messages.error(request, 'Choose a CSV or Excel file to import.')
+        return redirect('products:list')
+    if upload.size > 10 * 1024 * 1024:
+        messages.error(request, 'The import file must be smaller than 10 MB.')
+        return redirect('products:list')
+
+    try:
+        rows = _read_product_import(upload)
+    except ValueError as error:
+        messages.error(request, str(error))
+        return redirect('products:list')
+
+    existing_skus = set(Product.objects.values_list('sku', flat=True))
+    seen_skus = set()
+    valid_products = []
+    row_errors = []
+    for row_number, values in rows:
+        try:
+            name = values['name']
+            sku = values['sku']
+            category_name = values['category']
+            if not name or len(name) > 255:
+                raise ValueError('Name is required and must be 255 characters or fewer.')
+            if not sku or len(sku) > 50:
+                raise ValueError('SKU is required and must be 50 characters or fewer.')
+            if sku in existing_skus or sku in seen_skus:
+                raise ValueError(f'SKU "{sku}" already exists or is duplicated in this file.')
+            if not category_name or len(category_name) > 100:
+                raise ValueError('Category is required and must be 100 characters or fewer.')
+
+            stock = _import_decimal(values['stock'], 'Stock/Quantity')
+            reorder = _import_decimal(values['reorder'], 'Reorder Level')
+            unit_price = _import_decimal(values['unit_price'], 'Unit Price')
+            valid_products.append({
+                'sku': sku,
+                'name': name,
+                'category_name': category_name,
+                'current_stock': stock,
+                'minimum_stock': reorder,
+                'purchase_price': unit_price,
+                'selling_price': unit_price,
+            })
+            seen_skus.add(sku)
+        except ValueError as error:
+            row_errors.append(f'Row {row_number}: {error}')
+
+    imported_count = 0
+    try:
+        with transaction.atomic():
+            for values in valid_products:
+                category, _ = Category.objects.get_or_create(
+                    name=values.pop('category_name'),
+                )
+                Product.objects.create(category=category, **values)
+                imported_count += 1
+    except Exception:
+        logger.exception('Bulk product import failed while saving valid rows')
+        messages.error(request, 'The import could not be saved. No products were imported.')
+        return redirect('products:list')
+
+    if row_errors:
+        details = ' '.join(row_errors[:5])
+        if len(row_errors) > 5:
+            details += f' (+{len(row_errors) - 5} more row errors)'
+        messages.warning(
+            request,
+            f'Successfully imported {imported_count} products. '
+            f'{len(row_errors)} row(s) skipped. {details}',
+        )
+    else:
+        messages.success(request, f'Successfully imported {imported_count} products.')
+    if imported_count:
+        log_activity(
+            request,
+            'IMPORT',
+            'Products',
+            f'Imported {imported_count} products; skipped {len(row_errors)} invalid rows.',
+        )
+    return redirect('products:list')
+
+
+@login_required
+@require_http_methods(['GET'])
+def product_import_sample(request):
+    output = StringIO(newline='')
+    writer = csv.writer(output)
+    writer.writerow(['Name', 'SKU', 'Category', 'Stock/Quantity', 'Reorder Level', 'Unit Price'])
+    response = HttpResponse(output.getvalue(), content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="product_import_template.csv"'
     return response
 
 

@@ -28,6 +28,7 @@ urlpatterns = [
     path('payments/', include('payments.urls')),
     path('ledger/', include('ledger.urls')),
     path('reports/', include('reports_app.urls')),
+    path('audit-trail/', include('audit_log.urls')),
     path('roles/', include('roles.urls')),
     path('users/', include('users_app.urls')),
 ]

@@ -6,6 +6,8 @@ app_name = 'products'
 
 urlpatterns = [
     path('',                  views.product_list,   name='list'),
+    path('import/',           views.product_import, name='import'),
+    path('import/sample/',    views.product_import_sample, name='import_sample'),
     path('add/',              views.product_create,  name='create'),
     path('<int:pk>/',         views.product_detail,  name='detail'),
     path('<int:pk>/qrcode/',  views.product_qr_code, name='product_qr_code'),

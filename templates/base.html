@@ -73,6 +73,16 @@
 
     {# ── PAGE CONTENT ───────────────────────────────────────────────────── #}
     <main class="erp-content" id="erp-content" role="main">
+      {% if messages %}
+      <div class="mb-3" aria-live="polite">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% block content %}{% endblock %}
     </main>
 
@@ -295,5 +305,6 @@ document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
 </script>
 
 {% block extra_js %}{% endblock %}
+<script type="module" src="{% static 'js/modules/low_stock_alerts.js' %}"></script>
 </body>
 </html>

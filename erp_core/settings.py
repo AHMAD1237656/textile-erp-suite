@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'payments',
     'ledger',
     'reports_app',
+    'audit_log',
     'roles',
     'users_app',
 ]

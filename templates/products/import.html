@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Import Products{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1 class="page-title"><i class="bi bi-upload text-primary me-2"></i>Import Products</h1>
+    <nav class="breadcrumb-erp" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard:index' %}">Home</a>
+      <span class="sep">›</span>
+      <a href="{% url 'products:list' %}">Products</a>
+      <span class="sep">›</span>
+      <span aria-current="page">Import</span>
+    </nav>
+  </div>
+</div>
+<div class="card-erp">
+  <div class="card-body-erp">
+    <p class="text-muted">Required columns: Name, SKU, Category, Stock/Quantity, Reorder Level, and Unit Price.</p>
+    <a href="{% url 'products:import_sample' %}" class="btn-erp btn-erp-outline mb-3">
+      <i class="bi bi-download me-1"></i>Download Sample Template
+    </a>
+    <form method="post" enctype="multipart/form-data" action="{% url 'products:import' %}">
+      {% csrf_token %}
+      <label class="form-label-erp" for="product-import-file-page">CSV or Excel file</label>
+      <input class="form-input-erp mb-3" id="product-import-file-page" type="file"
+             name="file" accept=".csv,.xlsx" required>
+      <button type="submit" class="btn-erp btn-erp-primary">Import Products</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

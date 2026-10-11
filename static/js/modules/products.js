@@ -367,6 +367,13 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProducts();
   initBulkSelect();
 
+  document.getElementById('product-import-form')?.addEventListener('submit', () => {
+    const button = document.getElementById('btn-submit-product-import');
+    if (!button) return;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Importing…';
+  });
+
   document.querySelector('#productModal .nav-tabs')?.addEventListener('click', event => {
     const tabButton = event.target.closest('button[data-bs-toggle="tab"]');
     if (!tabButton) return;

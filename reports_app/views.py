@@ -19,6 +19,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from products.models import Product
+from audit_log.utils import log_activity
 
 
 REPORT_DEFINITIONS = {
@@ -159,6 +160,7 @@ def export_excel(request):
         ),
     )
     response['Content-Disposition'] = 'attachment; filename="sales_report.xlsx"'
+    log_activity(request, 'EXPORT', 'Reports', f'Exported {report_type} report as Excel.')
     return response
 
 
@@ -249,6 +251,7 @@ def export_pdf(request):
     ])
     response = HttpResponse(output.getvalue(), content_type='application/pdf')
     response['Content-Disposition'] = 'attachment; filename="sales_report.pdf"'
+    log_activity(request, 'EXPORT', 'Reports', f'Exported {report_type} report as PDF.')
     return response
 
 def reports_index(request):

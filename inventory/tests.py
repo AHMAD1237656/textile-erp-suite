@@ -42,4 +42,37 @@ class DashboardInventoryApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'items': []})
 
+
+class LowStockAlertApiTests(TestCase):
+    def test_returns_only_active_products_at_or_below_minimum(self):
+        Product.objects.create(
+            sku='LOW-1',
+            name='Low Stock Fabric',
+            current_stock='5',
+            minimum_stock='5',
+            status='active',
+        )
+        Product.objects.create(
+            sku='HEALTHY-1',
+            name='Healthy Fabric',
+            current_stock='6',
+            minimum_stock='5',
+            status='active',
+        )
+        Product.objects.create(
+            sku='INACTIVE-1',
+            name='Inactive Fabric',
+            current_stock='0',
+            minimum_stock='5',
+            status='inactive',
+        )
+
+        response = self.client.get('/inventory/api/low-stock-alerts/')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['count'], 1)
+        self.assertEqual(data['items'][0]['sku'], 'LOW-1')
+        self.assertEqual(data['items'][0]['url'], '/products/1/')
+
 # Create your tests here.

@@ -39,6 +39,10 @@
       <i class="bi bi-layout-three-columns me-1"></i>Columns
     </button>
     {% if erp_permissions.can_manage_products %}
+    <button class="btn-erp btn-erp-outline" type="button"
+            data-bs-toggle="modal" data-bs-target="#productImportModal">
+      <i class="bi bi-upload me-1"></i>Import Products
+    </button>
     <button class="btn-erp btn-erp-primary" id="btn-new"
             data-bs-toggle="modal" data-bs-target="#productModal"
             onclick="openProductModal()"
@@ -46,6 +50,41 @@
       <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Product
     </button>
     {% endif %}
+  </div>
+</div>
+
+{# Product CSV / Excel import modal #}
+<div class="modal fade" id="productImportModal" tabindex="-1"
+     aria-labelledby="productImportModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0" style="border-radius:var(--radius);">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="productImportModalLabel">
+          <i class="bi bi-upload text-primary me-2"></i>Import Products
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="product-import-form" method="post" enctype="multipart/form-data"
+            action="{% url 'products:import' %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <p class="text-muted small">Upload a CSV or .xlsx file with Name, SKU, Category, Stock/Quantity, Reorder Level, and Unit Price columns.</p>
+          <label class="form-label-erp" for="product-import-file">Import file</label>
+          <input class="form-input-erp" id="product-import-file" type="file"
+                 name="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                 required>
+          <a class="d-inline-block mt-3" href="{% url 'products:import_sample' %}">
+            <i class="bi bi-download me-1"></i>Download Sample Template
+          </a>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-erp btn-erp-ghost" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" id="btn-submit-product-import" class="btn-erp btn-erp-primary">
+            <i class="bi bi-upload me-1"></i>Import
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 
